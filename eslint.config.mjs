@@ -1,0 +1,40 @@
+import js from '@eslint/js';
+import tseslint from 'typescript-eslint';
+
+export default tseslint.config(
+  {
+    ignores: ['**/dist/**', '**/node_modules/**', 'coverage/**', '.vercel/**'],
+  },
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [js.configs.recommended, ...tseslint.configs.recommendedTypeChecked],
+    languageOptions: {
+      parserOptions: {
+        // Resolves each file to the tsconfig that owns it, which is what makes the
+        // type-aware rules below (no-floating-promises, no-misused-promises) possible.
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: {
+      // TypeScript already reports unknown identifiers, and it knows about DOM and Node
+      // globals per workspace — no `globals` package needed.
+      'no-undef': 'off',
+
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'TSEnumDeclaration',
+          message: 'Use an `as const` object with a derived union type instead of a TS enum.',
+        },
+      ],
+
+      '@typescript-eslint/consistent-type-imports': ['error', { fixStyle: 'inline-type-imports' }],
+
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
+    },
+  },
+);
