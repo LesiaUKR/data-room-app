@@ -17,10 +17,14 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "dev": "tsc -p tsconfig.json --watch --preserveWatchOutput"
+    "dev": "tsc -p tsconfig.json --watch --preserveWatchOutput",
+    "prepare": "npm run build"
   },
   "dependencies": {
     "@ts-rest/core": "3.52.1",
     "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
   }
 }
