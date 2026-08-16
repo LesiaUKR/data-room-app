@@ -1,8 +1,10 @@
 export {
   Action,
+  DependencyStatus,
   EffectiveRole,
   ErrorCode,
   FileVersionStatus,
+  HealthStatus,
   ShareRole,
   ShareType,
 } from './enums/index.js';

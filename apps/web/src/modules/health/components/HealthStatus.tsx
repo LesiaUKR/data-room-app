@@ -20,7 +20,7 @@ const HealthStatus = ({ onRetry, state }: HealthStatusProperties): ReactElement 
   if (state.kind === 'error') {
     return (
       <div className="flex flex-col items-center gap-4">
-        <p className="text-destructive">The API did not respond.</p>
+        <p className="text-destructive">The API is unavailable right now.</p>
         <Button onClick={onRetry}>Try again</Button>
       </div>
     );

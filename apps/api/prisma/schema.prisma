@@ -1,0 +1,166 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/libs/modules/database/generated"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+enum FileVersionStatus {
+  PENDING
+  READY
+  FAILED
+  DELETING
+  DELETED
+
+  @@map("file_version_status")
+}
+
+enum ShareType {
+  PUBLIC_LINK
+  USER
+
+  @@map("share_type")
+}
+
+enum ShareRole {
+  VIEWER
+  EDITOR
+
+  @@map("share_role")
+}
+
+/// "user" is a reserved SQL keyword — the hand-written CTEs stay quote-free with app_user.
+model User {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  email        String   @unique @db.VarChar(320)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  dataRooms        DataRoom[]
+  uploadedVersions FileVersion[]
+  createdGrants    ShareGrant[]  @relation("GrantCreator")
+  receivedGrants   ShareGrant[]  @relation("GrantRecipient")
+
+  @@map("app_user")
+}
+
+model DataRoom {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  ownerId   String    @map("owner_id") @db.Uuid
+  name      String    @db.VarChar(255)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  owner       User         @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  folders     Folder[]
+  files       File[]
+  shareGrants ShareGrant[]
+
+  @@index([ownerId, deletedAt], map: "data_room_owner_idx")
+  @@map("data_room")
+}
+
+model Folder {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  dataRoomId     String    @map("data_room_id") @db.Uuid
+  parentFolderId String?   @map("parent_folder_id") @db.Uuid
+  name           String    @db.VarChar(255)
+  normalizedName String    @map("normalized_name") @db.VarChar(255)
+  depth          Int       @db.SmallInt
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  dataRoom     DataRoom @relation(fields: [dataRoomId], references: [id], onDelete: Restrict)
+  parentFolder Folder?  @relation("FolderTree", fields: [parentFolderId, dataRoomId], references: [id, dataRoomId], onDelete: Restrict)
+  childFolders Folder[] @relation("FolderTree")
+
+  files       File[]
+  shareGrants ShareGrant[]
+
+  // Target of every room-scoped composite foreign key
+  @@unique([id, dataRoomId], map: "folder_id_data_room_id_key")
+  // Serves the listing query's WHERE and its ORDER BY (normalized_name, id)
+  @@index([dataRoomId, parentFolderId, normalizedName, id], map: "folder_listing_idx")
+  @@map("folder")
+}
+
+model File {
+  id               String    @id @default(uuid(7)) @db.Uuid
+  dataRoomId       String    @map("data_room_id") @db.Uuid
+  folderId         String    @map("folder_id") @db.Uuid
+  currentVersionId String?   @unique @map("current_version_id") @db.Uuid
+  name             String    @db.VarChar(255)
+  normalizedName   String    @map("normalized_name") @db.VarChar(255)
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  dataRoom DataRoom @relation(fields: [dataRoomId], references: [id], onDelete: Restrict)
+  folder   Folder   @relation(fields: [folderId, dataRoomId], references: [id, dataRoomId], onDelete: Restrict)
+
+  // Two relations to the same table: the pointer to the live version, and the history
+  currentVersion FileVersion?  @relation("CurrentVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
+  versions       FileVersion[] @relation("FileHistory")
+
+  shareGrants ShareGrant[]
+
+  @@unique([id, dataRoomId], map: "file_id_data_room_id_key")
+  @@index([dataRoomId, folderId, normalizedName, id], map: "file_listing_idx")
+  @@map("file")
+}
+
+model FileVersion {
+  id            String            @id @default(uuid(7)) @db.Uuid
+  fileId        String            @map("file_id") @db.Uuid
+  versionNumber Int               @map("version_number")
+  objectKey     String            @unique @map("object_key") @db.VarChar(512)
+  sizeBytes     BigInt?           @map("size_bytes")
+  contentType   String?           @map("content_type") @db.VarChar(255)
+  status        FileVersionStatus @default(PENDING)
+  createdById   String            @map("created_by_id") @db.Uuid
+  createdAt     DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  file      File  @relation("FileHistory", fields: [fileId], references: [id], onDelete: Cascade)
+  currentOf File? @relation("CurrentVersion")
+  createdBy User  @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  // The real guard against two concurrent uploads claiming the same version number
+  @@unique([fileId, versionNumber], map: "file_version_number_key")
+  @@map("file_version")
+}
+
+model ShareGrant {
+  id              String    @id @default(uuid(7)) @db.Uuid
+  dataRoomId      String    @map("data_room_id") @db.Uuid
+  folderId        String?   @map("folder_id") @db.Uuid
+  fileId          String?   @map("file_id") @db.Uuid
+  type            ShareType
+  role            ShareRole @default(VIEWER)
+  tokenHash       String?   @unique @map("token_hash") @db.VarChar(64)
+  recipientUserId String?   @map("recipient_user_id") @db.Uuid
+  createdById     String    @map("created_by_id") @db.Uuid
+  expiresAt       DateTime? @map("expires_at") @db.Timestamptz(3)
+  revokedAt       DateTime? @map("revoked_at") @db.Timestamptz(3)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  dataRoom DataRoom @relation(fields: [dataRoomId], references: [id], onDelete: Cascade)
+
+  // Both null => the grant targets the whole data room. Postgres skips a composite FK
+  // whenever one of its columns is NULL, which is exactly what optional targets need.
+  folder Folder? @relation(fields: [folderId, dataRoomId], references: [id, dataRoomId], onDelete: Cascade)
+  file   File?   @relation(fields: [fileId, dataRoomId], references: [id, dataRoomId], onDelete: Cascade)
+
+  recipient User? @relation("GrantRecipient", fields: [recipientUserId], references: [id], onDelete: Cascade)
+  createdBy User  @relation("GrantCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([recipientUserId, dataRoomId, revokedAt], map: "share_grant_recipient_idx")
+  @@map("share_grant")
+}

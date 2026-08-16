@@ -1,10 +1,15 @@
-import { type HealthResponse } from '@data-room/contracts';
+import { type HealthResponse, HealthStatus } from '@data-room/contracts';
 
 import { HTTPCode } from '../../libs/modules/http/index.js';
 import { type HealthService } from './health.service.js';
 
 type HealthControllerParameters = {
   healthService: HealthService;
+};
+
+type HealthCheckResult = {
+  body: HealthResponse;
+  status: typeof HTTPCode.OK | typeof HTTPCode.SERVICE_UNAVAILABLE;
 };
 
 class HealthController {
@@ -14,8 +19,13 @@ class HealthController {
     this.healthService = healthService;
   }
 
-  public check(): Promise<{ body: HealthResponse; status: typeof HTTPCode.OK }> {
-    return Promise.resolve({ status: HTTPCode.OK, body: this.healthService.getStatus() });
+  public async check(): Promise<HealthCheckResult> {
+    const body = await this.healthService.getStatus();
+
+    // The dependency verdict belongs in the status line: monitors read codes, not JSON
+    const status = body.status === HealthStatus.OK ? HTTPCode.OK : HTTPCode.SERVICE_UNAVAILABLE;
+
+    return { status, body };
   }
 }
 

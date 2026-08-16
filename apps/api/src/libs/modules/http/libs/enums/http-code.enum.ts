@@ -9,6 +9,7 @@ const HTTPCode = {
   CONFLICT: 409,
   UNPROCESSABLE_ENTITY: 422,
   INTERNAL_SERVER_ERROR: 500,
+  SERVICE_UNAVAILABLE: 503,
 } as const;
 
 type HTTPCode = (typeof HTTPCode)[keyof typeof HTTPCode];
