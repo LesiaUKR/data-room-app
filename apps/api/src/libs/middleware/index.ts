@@ -1,3 +1,4 @@
+export { authenticate, getActor } from './authenticate.middleware.js';
 export { errorHandler } from './error-handler.middleware.js';
 export { notFoundHandler } from './not-found.middleware.js';
 export { requestLogger } from './request-logger.middleware.js';

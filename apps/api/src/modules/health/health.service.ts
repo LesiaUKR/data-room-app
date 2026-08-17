@@ -5,11 +5,10 @@ import { type HealthRepository } from './health.repository.js';
 
 const UPTIME_PRECISION = 100;
 
-// A health probe must answer even when the database does not. The driver's own connection
-// timeout is the outer bound; this one keeps /health responsive well before that.
+// A health probe must answer even when the database does not
 const DATABASE_PING_TIMEOUT_MS = 3_000;
 
-/** Rejects once the deadline passes. The underlying query keeps running — we stop waiting. */
+/** Rejects once the deadline passes; the query keeps running, we stop waiting. */
 const rejectAfter = (timeoutMs: number): { promise: Promise<never>; cancel: () => void } => {
   let timer: NodeJS.Timeout;
 

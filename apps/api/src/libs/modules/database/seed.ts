@@ -1,24 +1,16 @@
 import { randomUUID } from 'node:crypto';
 
-import { hash } from 'bcryptjs';
-
+import { passwordHasher } from '../auth/index.js';
 import { config } from '../config/index.js';
 import { FileVersionStatus } from './generated/client.js';
 import { prisma } from './prisma.js';
 import { transaction, type TransactionClient } from './transaction.js';
 
-const PASSWORD_HASH_ROUNDS = 10;
-const SEED_PASSWORD = 'Password123!';
+// Seeded users are ordinary owners: a committed password would be a working production login
+const MISSING_PASSWORD_MESSAGE =
+  'Refusing to seed: set SEED_PASSWORD in apps/api/.env. Seeded accounts can sign in, so the value must never be committed.';
 
-/**
- * Seeding wipes every row. NODE_ENV cannot tell whether the target database is disposable —
- * local development and the deployed API currently share one Neon database — so the destructive
- * part is opt-in per run. A command-line flag has to be typed each time; an environment variable
- * could linger in a shell profile or a CI definition.
- *
- * The flag reaches this script only through the dedicated `db:seed:reset` npm script: plain
- * `npm run db:seed -- --reset` hands the flag to the Prisma CLI, which rejects it.
- */
+// Local development and the deployed API share one database, so NODE_ENV cannot decide this
 const RESET_FLAG = '--reset';
 const RESET_COMMAND = 'npm run db:seed:reset';
 
@@ -30,10 +22,7 @@ const normalize = (name: string): string => name.trim().toLowerCase();
 const buildObjectKey = (ids: { dataRoomId: string; fileId: string; versionId: string }): string =>
   `${ids.dataRoomId}/${ids.fileId}/${ids.versionId}`;
 
-/**
- * Foreign keys are RESTRICT, so rows go in reverse dependency order. The current-version
- * pointer is cleared first: File and FileVersion reference each other.
- */
+/** Reverse dependency order; the current-version pointer breaks the File/FileVersion cycle. */
 const clearDatabase = async (tx: TransactionClient): Promise<void> => {
   await tx.shareGrant.deleteMany();
   await tx.file.updateMany({ data: { currentVersionId: null } });
@@ -52,10 +41,7 @@ type SeedFileInput = {
   versionCount: number;
 };
 
-/**
- * Creates the logical file, its version history, and promotes the newest version — the same
- * order the upload flow will follow in Issue 06.
- */
+/** Creates the file, its versions, then promotes the newest — the order the upload flow uses. */
 const seedFile = async (tx: TransactionClient, input: SeedFileInput): Promise<void> => {
   const fileId = randomUUID();
 
@@ -107,7 +93,12 @@ const seed = async (): Promise<void> => {
     );
   }
 
-  const passwordHash = await hash(SEED_PASSWORD, PASSWORD_HASH_ROUNDS);
+  if (!config.seedPassword) {
+    throw new Error(MISSING_PASSWORD_MESSAGE);
+  }
+
+  // Same port as sign-up, so seeded hashes share the runtime cost factor
+  const passwordHash = await passwordHasher.hash(config.seedPassword);
 
   await transaction(async (tx) => {
     await clearDatabase(tx);

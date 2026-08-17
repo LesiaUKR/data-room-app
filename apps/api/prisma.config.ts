@@ -8,8 +8,7 @@ const POOLED_HOST_MARKER = '-pooler';
 
 const directUrl = process.env.DIRECT_URL;
 
-// Migrations must reach the database directly: the pooler cannot hold the advisory lock
-// Prisma Migrate takes, and DDL through it is unreliable.
+// Prisma Migrate's advisory lock cannot survive the pooler
 if (directUrl && directUrl.includes(POOLED_HOST_MARKER)) {
   throw new Error('DIRECT_URL must be the unpooled Neon endpoint, not the -pooler host.');
 }
@@ -20,7 +19,6 @@ export default defineConfig({
     path: 'prisma/migrations',
     seed: 'tsx src/libs/modules/database/seed.ts',
   },
-  // Declared only when present: `prisma generate` runs on build machines that hold no
-  // database credentials, while migration commands fail loudly without a datasource.
+  // Declared only when present, so `prisma generate` runs on builds without database credentials
   ...(directUrl ? { datasource: { url: directUrl } } : {}),
 });

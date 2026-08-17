@@ -20,9 +20,7 @@ export default tseslint.config(
         // Resolves each file to the tsconfig that owns it, which is what makes the
         // type-aware rules below (no-floating-promises, no-misused-promises) possible.
         projectService: {
-          // Tooling config files sit outside every app's `tsconfig.json` because they must not
-          // be compiled into `dist`. They are still linted, and typechecked separately through
-          // `apps/api/tsconfig.node.json`.
+          // Outside the app tsconfig so it never reaches `dist`; typechecked via tsconfig.node.json
           allowDefaultProject: ['apps/api/prisma.config.ts'],
         },
         tsconfigRootDir: import.meta.dirname,

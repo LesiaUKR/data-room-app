@@ -1,0 +1,777 @@
+{
+  "info": {
+    "name": "Data Room API",
+    "description": "Manual API checks for the Data Room MVP. Auth uses an HttpOnly session cookie, so Postman's own cookie jar carries the session — there is no token variable to set or leak. Run the whole collection top to bottom: unauthenticated probes run first, while the jar is still empty.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "email",
+      "value": ""
+    },
+    {
+      "key": "password",
+      "value": ""
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "dataRoomId",
+      "value": ""
+    },
+    {
+      "key": "rootFolderId",
+      "value": ""
+    },
+    {
+      "key": "oversizedPassword",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "00 — Health",
+      "item": [
+        {
+          "name": "GET /health",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// One fresh account per run: the Issue 03 seed already owns ivan@acme.example",
+                  "pm.collectionVariables.set('email', 'qa+' + Date.now() + '@example.com');",
+                  "",
+                  "// Generated per run, never committed: a seeded account is an ordinary owner that can sign in",
+                  "const entropy = pm.variables.replaceIn('{{$guid}}').replace(/-/g, '');",
+                  "pm.collectionVariables.set('password', 'Aa1!' + entropy.slice(0, 20));",
+                  "",
+                  "// Built once here so the oversized-body request stays readable",
+                  "pm.collectionVariables.set('oversizedPassword', 'a'.repeat(40000));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test('database is reachable', () => pm.expect(body.database).to.eql('UP'));",
+                  "pm.test('reports its uptime', () => pm.expect(body.uptimeSeconds).to.be.a('number'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "01 — Unauthenticated (jar must be empty)",
+      "item": [
+        {
+          "name": "GET /auth/me — no session → 401",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Postman remembers cookies between runs; an interrupted run would leave a live",
+                  "// session here and this probe would wrongly pass with 200.",
+                  "try {",
+                  "  pm.cookies.jar().clear(pm.variables.get('baseUrl'), () => {});",
+                  "} catch (error) {",
+                  "  console.log('Cookie jar not clearable — allowlist the domain under Cookies:', error.message);",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));",
+                  "pm.test('coded error body', () => pm.expect(pm.response.json().error.code).to.eql('UNAUTHORIZED'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "me"]
+            }
+          }
+        },
+        {
+          "name": "GET /auth/me — forged token → 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));",
+                  "",
+                  "// A library error escaping the port would surface as 500 with a stack trace",
+                  "pm.test('no internal error leaked', () => pm.expect(pm.response.text()).to.not.include('JsonWebToken'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "session=eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJmYWtlIn0.badsignature"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "me"]
+            }
+          }
+        },
+        {
+          "name": "GET /auth/nonexistent → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('coded error body', () => pm.expect(pm.response.json().error.code).to.eql('ROUTE_NOT_FOUND'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/nonexistent",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "nonexistent"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 — Rejected input",
+      "item": [
+        {
+          "name": "POST /auth/sign-up — weak password → 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 Unprocessable Entity', () => pm.response.to.have.status(422));",
+                  "",
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test('coded error body', () => pm.expect(body.error.code).to.eql('VALIDATION_ERROR'));",
+                  "",
+                  "// superRefine reports every unmet rule at once; chained .refine would stop at the",
+                  "// first, and the live checklist in the sign-up form would then show one error at a time",
+                  "pm.test('all four unmet rules reported at once', () => {",
+                  "  pm.expect(body.error.details.length).to.be.at.least(4);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"weak@example.com\",\n  \"password\": \"weakpass\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/sign-up",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "sign-up"]
+            }
+          }
+        },
+        {
+          "name": "POST /auth/sign-up — emoji password → 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 Unprocessable Entity', () => pm.response.to.have.status(422));",
+                  "",
+                  "// Emoji are excluded so one character stays one byte and bcrypt's 72-byte cutoff",
+                  "// can never be reached silently",
+                  "pm.test('charset rule reported', () => {",
+                  "  const messages = pm.response.json().error.details.map((detail) => detail.message).join(' ');",
+                  "  pm.expect(messages.toLowerCase()).to.include('emoji');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"emoji@example.com\",\n  \"password\": \"Str0ng!Pass\\uD83D\\uDD12\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/sign-up",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "sign-up"]
+            }
+          }
+        },
+        {
+          "name": "POST /auth/sign-up — malformed JSON → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 Bad Request', () => pm.response.to.have.status(400));",
+                  "",
+                  "// 400 is for a body that cannot be parsed at all; 422 is for a parsed body that",
+                  "// failed the schema. Collapsing the two would hide which half is wrong.",
+                  "pm.test('coded error body', () => pm.expect(pm.response.json().error.code).to.eql('MALFORMED_REQUEST_BODY'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/sign-up",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "sign-up"]
+            }
+          }
+        },
+        {
+          "name": "POST /auth/sign-up — body over 32kb → rejected",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('413 Payload Too Large', () => pm.response.to.have.status(413));",
+                  "",
+                  "// A rejected oversized body is a client-fixable refusal, not a server fault: it must",
+                  "// not reach the generic 500 branch, which logs as an unhandled error",
+                  "pm.test('coded error body', () => pm.expect(pm.response.json().error.code).to.eql('REQUEST_BODY_TOO_LARGE'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"big@example.com\",\n  \"password\": \"{{oversizedPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/sign-up",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "sign-up"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 — Sign-up and session",
+      "item": [
+        {
+          "name": "POST /auth/sign-up → 201",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "",
+                  "const setCookie = pm.response.headers.get('Set-Cookie') || '';",
+                  "",
+                  "pm.test('session cookie is HttpOnly', () => pm.expect(setCookie).to.match(/HttpOnly/i));",
+                  "pm.test('session cookie is SameSite=Lax', () => pm.expect(setCookie).to.match(/SameSite=Lax/i));",
+                  "",
+                  "// Secure is conditional on purpose: browsers drop a Secure cookie over plain HTTP,",
+                  "// which is exactly what local development is. The flag must follow the protocol.",
+                  "const isHttps = pm.request.url.protocol === 'https';",
+                  "pm.test(isHttps ? 'Secure set over HTTPS' : 'Secure absent over plain HTTP', () => {",
+                  "  pm.expect(/;\\s*Secure/i.test(setCookie)).to.eql(isHttps);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "const expectedEmail = pm.collectionVariables.get('email').toLowerCase();",
+                  "",
+                  "pm.test('email stored in lower case', () => pm.expect(body.user.email).to.eql(expectedEmail));",
+                  "pm.test('no password hash in the response', () => pm.expect(pm.response.text()).to.not.include('passwordHash'));",
+                  "pm.test('room carries its root folder id', () => pm.expect(body.dataRoom.rootFolderId).to.be.a('string'));",
+                  "",
+                  "pm.collectionVariables.set('userId', body.user.id);",
+                  "pm.collectionVariables.set('dataRoomId', body.dataRoom.id);",
+                  "pm.collectionVariables.set('rootFolderId', body.dataRoom.rootFolderId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/sign-up",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "sign-up"]
+            }
+          }
+        },
+        {
+          "name": "GET /auth/me — with session → 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "",
+                  "// The session is restored from the cookie alone: Postman never had the token value",
+                  "pm.test('same user as sign-up', () => pm.expect(body.user.id).to.eql(pm.collectionVariables.get('userId')));",
+                  "pm.test('same root folder as sign-up', () => pm.expect(body.dataRoom.rootFolderId).to.eql(pm.collectionVariables.get('rootFolderId')));",
+                  "pm.test('no password hash in the response', () => pm.expect(pm.response.text()).to.not.include('passwordHash'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "me"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 — Conflicts",
+      "item": [
+        {
+          "name": "POST /auth/sign-up — same email → 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 Conflict', () => pm.response.to.have.status(409));",
+                  "pm.test('coded error body', () => pm.expect(pm.response.json().error.code).to.eql('EMAIL_ALREADY_IN_USE'));",
+                  "",
+                  "// Row counts have to be checked in SQL — see .docs/test-plans/04-authentication.md step 4"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/sign-up",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "sign-up"]
+            }
+          }
+        },
+        {
+          "name": "POST /auth/sign-up — UPPER CASE email → 409",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('upperEmail', pm.collectionVariables.get('email').toUpperCase());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Identity is the normalised address: Ivan@Acme and ivan@acme are one person.",
+                  "// A 201 here would mean a duplicate account was just created.",
+                  "pm.test('409 Conflict', () => pm.response.to.have.status(409));",
+                  "pm.test('coded error body', () => pm.expect(pm.response.json().error.code).to.eql('EMAIL_ALREADY_IN_USE'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{upperEmail}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/sign-up",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "sign-up"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 — Sign-in",
+      "item": [
+        {
+          "name": "POST /auth/sign-in — wrong password → 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));",
+                  "",
+                  "const body = pm.response.json();",
+                  "",
+                  "// The same answer as an unknown address: telling them apart would let anyone",
+                  "// enumerate who is registered",
+                  "pm.test('coded error body', () => pm.expect(body.error.code).to.eql('INVALID_CREDENTIALS'));",
+                  "",
+                  "pm.collectionVariables.set('knownEmailMs', pm.response.responseTime);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"Wr0ng!Passw\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/sign-in",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "sign-in"]
+            }
+          }
+        },
+        {
+          "name": "POST /auth/sign-in — unknown email → 401 (same cost)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));",
+                  "pm.test('identical error code', () => pm.expect(pm.response.json().error.code).to.eql('INVALID_CREDENTIALS'));",
+                  "",
+                  "// The service compares against a decoy hash when no user is found, so this path",
+                  "// costs the same as a wrong password. A much faster answer here would leak",
+                  "// whether an address is registered.",
+                  "const knownMs = Number(pm.collectionVariables.get('knownEmailMs'));",
+                  "const unknownMs = pm.response.responseTime;",
+                  "console.log('known email: ' + knownMs + 'ms, unknown email: ' + unknownMs + 'ms');",
+                  "",
+                  "pm.test('unknown email is not dramatically faster', () => {",
+                  "  pm.expect(unknownMs).to.be.above(knownMs / 3);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"nobody-{{$randomUUID}}@example.com\",\n  \"password\": \"Wr0ng!Passw\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/sign-in",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "sign-in"]
+            }
+          }
+        },
+        {
+          "name": "POST /auth/sign-in — correct password → 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "",
+                  "const setCookie = pm.response.headers.get('Set-Cookie') || '';",
+                  "pm.test('a fresh session cookie is issued', () => pm.expect(setCookie).to.match(/HttpOnly/i));",
+                  "",
+                  "pm.test('same account as before', () => pm.expect(pm.response.json().user.id).to.eql(pm.collectionVariables.get('userId')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/sign-in",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "sign-in"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 — Sign-out",
+      "item": [
+        {
+          "name": "POST /auth/sign-out → 204",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));",
+                  "pm.test('empty body', () => pm.expect(pm.response.text()).to.be.oneOf(['', undefined, null]));",
+                  "",
+                  "// Clearing only works when the attributes repeat the ones the cookie was set with",
+                  "const setCookie = pm.response.headers.get('Set-Cookie') || '';",
+                  "pm.test('cookie is expired with matching attributes', () => {",
+                  "  pm.expect(setCookie).to.match(/session=/);",
+                  "  pm.expect(setCookie).to.match(/HttpOnly/i);",
+                  "  pm.expect(setCookie).to.match(/Path=\\//i);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/sign-out",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "sign-out"]
+            }
+          }
+        },
+        {
+          "name": "GET /auth/me — after sign-out → 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));",
+                  "pm.test('coded error body', () => pm.expect(pm.response.json().error.code).to.eql('UNAUTHORIZED'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "me"]
+            }
+          }
+        },
+        {
+          "name": "POST /auth/sign-out — repeated → 204",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Signing out twice is not an error: the route only clears a cookie",
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/sign-out",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "sign-out"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

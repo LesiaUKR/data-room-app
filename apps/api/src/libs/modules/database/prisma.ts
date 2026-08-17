@@ -3,12 +3,10 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { config } from '../config/index.js';
 import { type Prisma, PrismaClient } from './generated/client.js';
 
-// One connection per instance: every serverless invocation is isolated, and the pg driver
-// would otherwise default to 10 — Neon's pooler runs out long before that is useful.
+// One per serverless invocation; the pg default of 10 exhausts Neon's pooler
 const SERVERLESS_POOL_SIZE = 1;
 
-// pg waits for a free connection indefinitely by default. With a pool of one, a stalled query
-// would make every later caller — including /health — hang until the platform kills the request.
+// pg waits for a free connection forever by default, which would hang /health
 const CONNECTION_TIMEOUT_MS = 5_000;
 
 const logLevels: Prisma.LogLevel[] = config.isDevelopment
@@ -25,8 +23,7 @@ const createPrismaClient = (): PrismaClient => {
   return new PrismaClient({ adapter, log: logLevels });
 };
 
-// The module can be evaluated more than once in a single process (dev watch, bundling), and
-// each evaluation would open its own connection. globalThis outlives module scope.
+// The module can be evaluated twice in one process; globalThis outlives module scope
 const globalForPrisma = globalThis as typeof globalThis & {
   dataRoomPrisma?: PrismaClient;
 };

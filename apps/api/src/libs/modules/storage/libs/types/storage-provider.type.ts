@@ -1,6 +1,5 @@
 /** What the application needs from object storage, with no vendor concepts in sight. */
 
-/** What the service asks for. Nothing is signed yet at this point. */
 type UploadUrlRequest = {
   /** Immutable `dataRoomId/fileId/versionId` — never a display name or a URL. */
   objectKey: string;
@@ -8,10 +7,7 @@ type UploadUrlRequest = {
   maxSizeBytes: number;
 };
 
-/**
- * A URL carrying its own proof of permission: it is scoped to one object and one operation,
- * and stops working at `expiresAt`. Whoever holds it may act, so the lifetime stays short.
- */
+/** Carries its own proof of permission: one object, one operation, until `expiresAt`. */
 type SignedUrl = {
   url: string;
   expiresAt: Date;

@@ -153,8 +153,7 @@ model ShareGrant {
 
   dataRoom DataRoom @relation(fields: [dataRoomId], references: [id], onDelete: Cascade)
 
-  // Both null => the grant targets the whole data room. Postgres skips a composite FK
-  // whenever one of its columns is NULL, which is exactly what optional targets need.
+  // Both null => the whole data room; Postgres skips a composite FK when a column is NULL
   folder Folder? @relation(fields: [folderId, dataRoomId], references: [id, dataRoomId], onDelete: Cascade)
   file   File?   @relation(fields: [fileId, dataRoomId], references: [id, dataRoomId], onDelete: Cascade)
 

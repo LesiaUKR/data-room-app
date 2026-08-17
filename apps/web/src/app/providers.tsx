@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { type PropsWithChildren, type ReactElement } from 'react';
 
-import { tsr } from '@/libs/modules/api';
+import { tsr } from '@/lib/api-client';
 
 const queryClient = new QueryClient();
 

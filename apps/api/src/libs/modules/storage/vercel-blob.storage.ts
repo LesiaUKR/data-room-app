@@ -12,8 +12,7 @@ const MILLISECONDS_PER_SECOND = 1000;
 // Long enough for a slow connection to finish one file, short enough that a leaked URL dies
 const UPLOAD_TTL_SECONDS = 600;
 
-// A signed GET stays valid until it expires even if the share is revoked a second later.
-// The mitigation is a short TTL, documented in the README — not a claim of instant revocation.
+// A signed GET outlives a revoked share until it expires; the short TTL is the mitigation
 const DOWNLOAD_TTL_SECONDS = 120;
 
 // Blob deletion is awaited in chunks after the catalog transaction, never fired and forgotten
@@ -31,9 +30,7 @@ class VercelBlobStorage implements StorageProvider {
   public async createUploadUrl(request: UploadUrlRequest): Promise<SignedUrl> {
     const validUntil = Date.now() + UPLOAD_TTL_SECONDS * MILLISECONDS_PER_SECOND;
 
-    // Scoped to one pathname and one operation: this URL cannot read, delete, or touch
-    // another object. The content-type and size hints are advisory — the storage HEAD check
-    // on completion is what actually decides what lands in the database.
+    // Scoped to one pathname and one operation; the type and size hints are advisory, HEAD decides
     const signedToken = await issueSignedToken({
       token: this.token,
       pathname: request.objectKey,
