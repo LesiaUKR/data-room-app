@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
+import { normalizeName } from '../../helpers/index.js';
 import { passwordHasher } from '../auth/index.js';
 import { config } from '../config/index.js';
 import { FileVersionStatus } from './generated/client.js';
@@ -16,8 +17,6 @@ const RESET_COMMAND = 'npm run db:seed:reset';
 
 const ROOT_DEPTH = 0;
 const FIRST_LEVEL_DEPTH = 1;
-
-const normalize = (name: string): string => name.trim().toLowerCase();
 
 const buildObjectKey = (ids: { dataRoomId: string; fileId: string; versionId: string }): string =>
   `${ids.dataRoomId}/${ids.fileId}/${ids.versionId}`;
@@ -51,7 +50,7 @@ const seedFile = async (tx: TransactionClient, input: SeedFileInput): Promise<vo
       dataRoomId: input.dataRoomId,
       folderId: input.folderId,
       name: input.name,
-      normalizedName: normalize(input.name),
+      normalizedName: normalizeName(input.name),
     },
   });
 
@@ -125,7 +124,7 @@ const seed = async (): Promise<void> => {
         dataRoomId: acmeId,
         parentFolderId: null,
         name: 'Acme Acquisition',
-        normalizedName: normalize('Acme Acquisition'),
+        normalizedName: normalizeName('Acme Acquisition'),
         depth: ROOT_DEPTH,
       },
     });
@@ -137,7 +136,7 @@ const seed = async (): Promise<void> => {
           dataRoomId: acmeId,
           parentFolderId: acmeRootId,
           name: 'Financials',
-          normalizedName: normalize('Financials'),
+          normalizedName: normalizeName('Financials'),
           depth: FIRST_LEVEL_DEPTH,
         },
         {
@@ -145,7 +144,7 @@ const seed = async (): Promise<void> => {
           dataRoomId: acmeId,
           parentFolderId: acmeRootId,
           name: 'Legal',
-          normalizedName: normalize('Legal'),
+          normalizedName: normalizeName('Legal'),
           depth: FIRST_LEVEL_DEPTH,
         },
       ],
@@ -188,7 +187,7 @@ const seed = async (): Promise<void> => {
         dataRoomId: globexId,
         parentFolderId: null,
         name: 'Globex Diligence',
-        normalizedName: normalize('Globex Diligence'),
+        normalizedName: normalizeName('Globex Diligence'),
         depth: ROOT_DEPTH,
       },
     });
@@ -199,7 +198,7 @@ const seed = async (): Promise<void> => {
         dataRoomId: globexId,
         parentFolderId: globexRootId,
         name: 'Reports',
-        normalizedName: normalize('Reports'),
+        normalizedName: normalizeName('Reports'),
         depth: FIRST_LEVEL_DEPTH,
       },
     });

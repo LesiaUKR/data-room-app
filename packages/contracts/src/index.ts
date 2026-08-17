@@ -1,6 +1,7 @@
 export { apiContract } from './api.contract.js';
 export {
   Action,
+  ContentsEntryKind,
   DependencyStatus,
   EffectiveRole,
   ErrorCode,
@@ -34,4 +35,31 @@ export {
   type ErrorDetail,
   type ErrorResponse,
 } from './error-response.schema.js';
+export {
+  breadcrumbSchema,
+  breadcrumbsResponseSchema,
+  byteCountSchema,
+  contentsEntrySchema,
+  contentsPageSize,
+  contentsQuerySchema,
+  contentsResponseSchema,
+  createFolderSchema,
+  folderIdParamsSchema,
+  folderNameSchema,
+  foldersContract,
+  folderSchema,
+  renameFolderSchema,
+  subtreeStatsSchema,
+  type Breadcrumb,
+  type BreadcrumbsResponse,
+  type ContentsEntry,
+  type ContentsFileEntry,
+  type ContentsFolderEntry,
+  type ContentsQuery,
+  type ContentsResponse,
+  type CreateFolder,
+  type Folder,
+  type RenameFolder,
+  type SubtreeStats,
+} from './folders.contract.js';
 export { healthContract, healthResponseSchema, type HealthResponse } from './health.contract.js';

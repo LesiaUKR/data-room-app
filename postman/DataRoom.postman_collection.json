@@ -28,6 +28,26 @@
     {
       "key": "oversizedPassword",
       "value": ""
+    },
+    {
+      "key": "folderId",
+      "value": ""
+    },
+    {
+      "key": "nestedFolderId",
+      "value": ""
+    },
+    {
+      "key": "siblingFolderId",
+      "value": ""
+    },
+    {
+      "key": "contentsCursor",
+      "value": ""
+    },
+    {
+      "key": "firstEntryId",
+      "value": ""
     }
   ],
   "item": [
@@ -689,7 +709,737 @@
       ]
     },
     {
-      "name": "06 — Sign-out",
+      "name": "06 — Folders",
+      "item": [
+        {
+          "name": "GET /folders/:id/contents — empty root → 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('a brand new room is empty', () => pm.expect(body.items).to.eql([]));",
+                  "pm.test('no next page', () => pm.expect(body.nextCursor).to.eql(null));",
+                  "pm.test('no total count is returned', () => pm.expect(body).to.not.have.property('total'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/folders/{{rootFolderId}}/contents",
+              "host": ["{{baseUrl}}"],
+              "path": ["folders", "{{rootFolderId}}", "contents"]
+            }
+          }
+        },
+        {
+          "name": "GET /folders/:id/breadcrumbs — root → 200 empty",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "// The internal root folder must never surface as a crumb",
+                  "pm.test('root has no crumbs', () => pm.expect(pm.response.json().items).to.eql([]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/folders/{{rootFolderId}}/breadcrumbs",
+              "host": ["{{baseUrl}}"],
+              "path": ["folders", "{{rootFolderId}}", "breadcrumbs"]
+            }
+          }
+        },
+        {
+          "name": "POST /folders — create Financials → 201",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('first visible level is depth 1', () => pm.expect(body.depth).to.eql(1));",
+                  "pm.test('parent is the room root', () => pm.expect(body.parentFolderId).to.eql(pm.collectionVariables.get('rootFolderId')));",
+                  "pm.test('display name keeps its capital', () => pm.expect(body.name).to.eql('Financials'));",
+                  "pm.test('the comparison key never leaves the API', () => pm.expect(pm.response.text()).to.not.include('normalizedName'));",
+                  "pm.collectionVariables.set('folderId', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"parentFolderId\": \"{{rootFolderId}}\",\n  \"name\": \"Financials\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/folders",
+              "host": ["{{baseUrl}}"],
+              "path": ["folders"]
+            }
+          }
+        },
+        {
+          "name": "POST /folders — same name → 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 Conflict', () => pm.response.to.have.status(409));",
+                  "pm.test('code is NAME_CONFLICT', () => pm.expect(pm.response.json().error.code).to.eql('NAME_CONFLICT'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"parentFolderId\": \"{{rootFolderId}}\",\n  \"name\": \"Financials\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/folders",
+              "host": ["{{baseUrl}}"],
+              "path": ["folders"]
+            }
+          }
+        },
+        {
+          "name": "POST /folders — UPPER CASE name → 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 Conflict', () => pm.response.to.have.status(409));",
+                  "pm.test('code is NAME_CONFLICT', () => pm.expect(pm.response.json().error.code).to.eql('NAME_CONFLICT'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"parentFolderId\": \"{{rootFolderId}}\",\n  \"name\": \"FINANCIALS\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/folders",
+              "host": ["{{baseUrl}}"],
+              "path": ["folders"]
+            }
+          }
+        },
+        {
+          "name": "POST /folders — emoji name → 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 Unprocessable Entity', () => pm.response.to.have.status(422));",
+                  "pm.test('code is VALIDATION_ERROR', () => pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"parentFolderId\": \"{{rootFolderId}}\",\n  \"name\": \"📁 Docs\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/folders",
+              "host": ["{{baseUrl}}"],
+              "path": ["folders"]
+            }
+          }
+        },
+        {
+          "name": "POST /folders — parentFolderId not a uuid → 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 Unprocessable Entity', () => pm.response.to.have.status(422));",
+                  "// Rejected by the contract schema, before the service or the database is touched",
+                  "pm.test('code is VALIDATION_ERROR', () => pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"parentFolderId\": \"abc\",\n  \"name\": \"Anything\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/folders",
+              "host": ["{{baseUrl}}"],
+              "path": ["folders"]
+            }
+          }
+        },
+        {
+          "name": "POST /folders — nested Q3 → 201",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('nesting increments depth', () => pm.expect(body.depth).to.eql(2));",
+                  "pm.collectionVariables.set('nestedFolderId', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"parentFolderId\": \"{{folderId}}\",\n  \"name\": \"Q3\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/folders",
+              "host": ["{{baseUrl}}"],
+              "path": ["folders"]
+            }
+          }
+        },
+        {
+          "name": "GET /folders/:id/breadcrumbs — nested → 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const items = pm.response.json().items;",
+                  "pm.test('two crumbs, root excluded', () => pm.expect(items).to.have.lengthOf(2));",
+                  "pm.test('ordered from the top down', () => pm.expect(items.map((c) => c.name)).to.eql(['Financials', 'Q3']));",
+                  "pm.test('depths ascend', () => pm.expect(items.map((c) => c.depth)).to.eql([1, 2]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/folders/{{nestedFolderId}}/breadcrumbs",
+              "host": ["{{baseUrl}}"],
+              "path": ["folders", "{{nestedFolderId}}", "breadcrumbs"]
+            }
+          }
+        },
+        {
+          "name": "POST /folders — create Legal → 201",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('siblingFolderId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"parentFolderId\": \"{{rootFolderId}}\",\n  \"name\": \"Legal\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/folders",
+              "host": ["{{baseUrl}}"],
+              "path": ["folders"]
+            }
+          }
+        },
+        {
+          "name": "PATCH /folders/:id — rename onto a taken name → 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 Conflict', () => pm.response.to.have.status(409));",
+                  "pm.test('code is NAME_CONFLICT', () => pm.expect(pm.response.json().error.code).to.eql('NAME_CONFLICT'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Legal\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/folders/{{folderId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["folders", "{{folderId}}"]
+            }
+          }
+        },
+        {
+          "name": "PATCH /folders/:id — case-only rename → 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Matching itself is not a conflict: the normalized name is unchanged",
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('display name follows the request', () => pm.expect(pm.response.json().name).to.eql('q3'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"q3\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/folders/{{nestedFolderId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["folders", "{{nestedFolderId}}"]
+            }
+          }
+        },
+        {
+          "name": "PATCH /folders/:id — the root folder → 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// 403, not 404: the owner sees the root, this action is simply not allowed on it",
+                  "pm.test('403 Forbidden', () => pm.response.to.have.status(403));",
+                  "pm.test('code is FORBIDDEN', () => pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"hacked\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/folders/{{rootFolderId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["folders", "{{rootFolderId}}"]
+            }
+          }
+        },
+        {
+          "name": "DELETE /folders/:id — the root folder → 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 Forbidden', () => pm.response.to.have.status(403));",
+                  "pm.test('code is FORBIDDEN', () => pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/folders/{{rootFolderId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["folders", "{{rootFolderId}}"]
+            }
+          }
+        },
+        {
+          "name": "GET /folders/:id/subtree-stats → 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('counts the subtree, not the folder itself', () => pm.expect(body.folderCount).to.eql(1));",
+                  "pm.test('no files yet', () => pm.expect(body.fileCount).to.eql(0));",
+                  "// Bytes cross the contract as a decimal string: a sum can exceed Number.MAX_SAFE_INTEGER",
+                  "pm.test('totalBytes is a decimal string', () => pm.expect(body.totalBytes).to.eql('0'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/folders/{{folderId}}/subtree-stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["folders", "{{folderId}}", "subtree-stats"]
+            }
+          }
+        },
+        {
+          "name": "GET /folders/:id/contents — first page of one",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('one entry returned', () => pm.expect(body.items).to.have.lengthOf(1));",
+                  "pm.test('more pages follow', () => pm.expect(body.nextCursor).to.be.a('string'));",
+                  "pm.collectionVariables.set('contentsCursor', body.nextCursor);",
+                  "pm.collectionVariables.set('firstEntryId', body.items[0].id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/folders/{{rootFolderId}}/contents?limit=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["folders", "{{rootFolderId}}", "contents"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /folders/:id/contents — second page",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('the page moved on', () => pm.expect(body.items[0].id).to.not.eql(pm.collectionVariables.get('firstEntryId')));",
+                  "pm.test('that was the last page', () => pm.expect(body.nextCursor).to.eql(null));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/folders/{{rootFolderId}}/contents?limit=1&cursor={{contentsCursor}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["folders", "{{rootFolderId}}", "contents"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "1"
+                },
+                {
+                  "key": "cursor",
+                  "value": "{{contentsCursor}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /folders/:id/contents — cursor from another folder → 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Decoding is not authorization: a valid cursor from another list decodes fine",
+                  "pm.test('422 Unprocessable Entity', () => pm.response.to.have.status(422));",
+                  "pm.test('code is VALIDATION_ERROR', () => pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/folders/{{folderId}}/contents?cursor={{contentsCursor}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["folders", "{{folderId}}", "contents"],
+              "query": [
+                {
+                  "key": "cursor",
+                  "value": "{{contentsCursor}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /folders/:id/contents — corrupt cursor → 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422, not 500', () => pm.response.to.have.status(422));",
+                  "pm.test('code is VALIDATION_ERROR', () => pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/folders/{{rootFolderId}}/contents?cursor=not-a-cursor",
+              "host": ["{{baseUrl}}"],
+              "path": ["folders", "{{rootFolderId}}", "contents"],
+              "query": [
+                {
+                  "key": "cursor",
+                  "value": "not-a-cursor"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "DELETE /folders/:id — subtree → 204",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));",
+                  "pm.test('no body', () => pm.expect(pm.response.text()).to.eql(''));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/folders/{{folderId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["folders", "{{folderId}}"]
+            }
+          }
+        },
+        {
+          "name": "GET /folders/:id/contents — deleted folder → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('code is FOLDER_NOT_FOUND', () => pm.expect(pm.response.json().error.code).to.eql('FOLDER_NOT_FOUND'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/folders/{{folderId}}/contents",
+              "host": ["{{baseUrl}}"],
+              "path": ["folders", "{{folderId}}", "contents"]
+            }
+          }
+        },
+        {
+          "name": "GET /folders/:id/contents — nested child went with it → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// The whole subtree was soft-deleted in one transaction, not only the target folder",
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('code is FOLDER_NOT_FOUND', () => pm.expect(pm.response.json().error.code).to.eql('FOLDER_NOT_FOUND'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/folders/{{nestedFolderId}}/contents",
+              "host": ["{{baseUrl}}"],
+              "path": ["folders", "{{nestedFolderId}}", "contents"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 — Sign-out",
       "item": [
         {
           "name": "POST /auth/sign-out → 204",

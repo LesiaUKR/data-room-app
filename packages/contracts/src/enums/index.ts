@@ -1,4 +1,5 @@
 export { Action } from './action.enum.js';
+export { ContentsEntryKind } from './contents-entry-kind.enum.js';
 export { DependencyStatus } from './dependency-status.enum.js';
 export { EffectiveRole } from './effective-role.enum.js';
 export { ErrorCode } from './error-code.enum.js';

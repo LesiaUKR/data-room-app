@@ -41,10 +41,18 @@ The collection is numbered because several assertions depend on session state:
 | `03 — Sign-up and session` | Creates the account; every later request depends on it                 |
 | `04 — Conflicts`           | Needs the account to already exist                                     |
 | `05 — Sign-in`             | Re-establishes the session and compares response times                 |
-| `06 — Sign-out`            | Ends the session; leaves the jar clean for the next run                |
+| `06 — Folders`             | Needs a live session; builds and tears down its own tree               |
+| `07 — Sign-out`            | Ends the session; leaves the jar clean for the next run                |
+
+**Sign-out stays last.** Every feature folder needs the session that `03`/`05` established, so
+each new one is inserted _before_ it — not appended after.
 
 A fresh address is generated on every run (`qa+<timestamp>@example.com`), because
 `ivan@acme.example` and `maria@globex.example` already exist from the Issue 03 seed.
+
+`06 — Folders` works only inside that run's own empty data room, using the `rootFolderId` that
+sign-up captured. It creates `Financials`, `Financials/Q3` and `Legal`, then deletes the
+`Financials` subtree, so it never touches the seeded rooms.
 
 ## The cookie-jar trap
 
@@ -66,6 +74,7 @@ By design — these need other tools, and they are covered in
 
 ## Extending it
 
-One folder per feature, numbered in run order. Issues 05–07 add `07 — Folders`,
-`08 — Files`, `09 — Sharing`. Keep the same shape: assert the status code, the error `code`,
-and the one invariant the request exists to prove — not the whole response body.
+One folder per feature, numbered in run order, and always inserted **before** `Sign-out`.
+Issue 06 adds `07 — Files` and Issue 07 adds `08 — Sharing`, each pushing sign-out one number
+further down. Keep the same shape: assert the status code, the error `code`, and the one
+invariant the request exists to prove — not the whole response body.

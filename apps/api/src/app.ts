@@ -1,4 +1,4 @@
-import { authContract, healthContract } from '@data-room/contracts';
+import { authContract, foldersContract, healthContract } from '@data-room/contracts';
 import { createExpressEndpoints } from '@ts-rest/express';
 import express, { type Express } from 'express';
 
@@ -10,6 +10,7 @@ import {
 } from './libs/middleware/index.js';
 import { config } from './libs/modules/config/index.js';
 import { authRouter } from './modules/auth/auth.js';
+import { folderRouter } from './modules/folders/folders.js';
 import { healthRouter } from './modules/health/health.js';
 
 const app: Express = express();
@@ -21,6 +22,12 @@ app.use(requestLogger);
 app.use(express.json({ limit: JSON_BODY_LIMIT }));
 
 createExpressEndpoints(authContract, authRouter, app, {
+  logInitialization: false,
+  requestValidationErrorHandler: validationErrorHandler,
+  responseValidation: config.isDevelopment,
+});
+
+createExpressEndpoints(foldersContract, folderRouter, app, {
   logInitialization: false,
   requestValidationErrorHandler: validationErrorHandler,
   responseValidation: config.isDevelopment,

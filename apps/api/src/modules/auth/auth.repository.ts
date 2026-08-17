@@ -1,20 +1,10 @@
+import { isUniqueViolation, normalizeName } from '../../libs/helpers/index.js';
 import { type DatabaseClient, type TransactionClient } from '../../libs/modules/database/index.js';
 import { type UserEntity } from './auth.entity.js';
 import { toUserEntity, userAccountSelect, userSelect, type UserAccountRow } from './auth.model.js';
 import { type CreateAccountInput, type UserAccount } from './libs/types/index.js';
 
-const UNIQUE_VIOLATION_CODE = 'P2002';
-
 const ROOT_FOLDER_DEPTH = 0;
-
-const normalizeName = (name: string): string => name.trim().toLowerCase();
-
-/** Prisma's unique-constraint failure, recognised by narrowing instead of importing its class. */
-const isUniqueViolation = (error: unknown): boolean =>
-  typeof error === 'object' &&
-  error !== null &&
-  'code' in error &&
-  error.code === UNIQUE_VIOLATION_CODE;
 
 class AuthRepository {
   private readonly database: DatabaseClient;
