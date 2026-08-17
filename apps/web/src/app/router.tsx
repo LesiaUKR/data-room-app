@@ -6,6 +6,7 @@ import {
   useNavigate,
 } from '@tanstack/react-router';
 import { type ReactElement } from 'react';
+import { z } from 'zod';
 
 import { RequireAnonymous, RequireSession } from '@/features/auth/components';
 import { SignInPage } from '@/features/auth/pages/SignInPage';
@@ -51,10 +52,19 @@ const SignUpScreen = (): ReactElement => {
 
 const rootRoute = createRootRoute({ component: RootLayout });
 
+const dataRoomSearchSchema = z.object({
+  folder: z.string().uuid().optional(),
+});
+
 const dataRoomRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
   component: ProtectedDataRoom,
+  validateSearch: (search: Record<string, unknown>) => {
+    const parsed = dataRoomSearchSchema.safeParse(search);
+
+    return parsed.success ? parsed.data : {};
+  },
 });
 
 const signInRoute = createRoute({
@@ -78,5 +88,11 @@ const healthRoute = createRoute({
 const router = createRouter({
   routeTree: rootRoute.addChildren([dataRoomRoute, signInRoute, signUpRoute, healthRoute]),
 });
+
+declare module '@tanstack/react-router' {
+  interface Register {
+    router: typeof router;
+  }
+}
 
 export { router };
