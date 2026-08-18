@@ -190,6 +190,7 @@ type SessionDataRoom = z.infer<typeof sessionDataRoomSchema>;
 export {
   authContract,
   credentialsSchema,
+  emailSchema,
   evaluatePasswordRules,
   passwordRules,
   sessionDataRoomSchema,

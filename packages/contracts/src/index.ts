@@ -7,6 +7,7 @@ export {
   ErrorCode,
   FileVersionStatus,
   HealthStatus,
+  ResourceKind,
   ShareRole,
   ShareType,
   UploadMode,
@@ -14,6 +15,7 @@ export {
 export {
   authContract,
   credentialsSchema,
+  emailSchema,
   evaluatePasswordRules,
   passwordPolicy,
   passwordRules,
@@ -84,6 +86,32 @@ export {
   type SubtreeStats,
 } from './folders.contract.js';
 export { healthContract, healthResponseSchema, type HealthResponse } from './health.contract.js';
+export {
+  publicShareSchema,
+  publicSharesContract,
+  shareTokenParamsSchema,
+  type PublicShare,
+  type ShareTokenParams,
+} from './public-shares.contract.js';
+export {
+  createdShareSchema,
+  createShareSchema,
+  listSharesQuerySchema,
+  shareIdParamsSchema,
+  shareSchema,
+  sharesContract,
+  sharesPageSize,
+  sharesResponseSchema,
+  shareTargetSchema,
+  shareTargetViewSchema,
+  type CreatedShare,
+  type CreateShare,
+  type ListSharesQuery,
+  type Share,
+  type SharesResponse,
+  type ShareTarget,
+  type ShareTargetView,
+} from './shares.contract.js';
 export {
   byteCountSchema,
   RESOURCE_NAME_MAX_CHARACTERS,

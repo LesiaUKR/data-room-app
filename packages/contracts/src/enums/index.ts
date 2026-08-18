@@ -5,6 +5,7 @@ export { EffectiveRole } from './effective-role.enum.js';
 export { ErrorCode } from './error-code.enum.js';
 export { FileVersionStatus } from './file-version-status.enum.js';
 export { HealthStatus } from './health-status.enum.js';
+export { ResourceKind } from './resource-kind.enum.js';
 export { ShareRole } from './share-role.enum.js';
 export { ShareType } from './share-type.enum.js';
 export { UploadMode } from './upload-mode.enum.js';
