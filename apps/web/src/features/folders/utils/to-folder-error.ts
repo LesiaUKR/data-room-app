@@ -12,7 +12,7 @@ type FolderErrorEntry = {
   message: string;
 };
 
-type FolderFailure = 'forbidden' | 'missing' | 'offline' | 'unknown';
+type FolderFailure = 'forbidden' | 'malformed' | 'missing' | 'offline' | 'unknown';
 
 const isHttpError = (error: unknown): error is { status: number; body: unknown } =>
   typeof error === 'object' &&
@@ -57,7 +57,8 @@ const toFolderErrors = (error: unknown): FolderErrorEntry[] => {
   if (
     code === ErrorCode.FOLDER_DEPTH_LIMIT_EXCEEDED ||
     code === ErrorCode.FORBIDDEN ||
-    code === ErrorCode.FOLDER_NOT_FOUND
+    code === ErrorCode.FOLDER_NOT_FOUND ||
+    code === ErrorCode.SHARE_NOT_FOUND
   ) {
     return [{ field: 'root', message }];
   }
@@ -76,14 +77,24 @@ const toFolderFailure = (error: unknown): FolderFailure => {
     return 'forbidden';
   }
 
-  if (parsed?.code === ErrorCode.FOLDER_NOT_FOUND) {
+  if (parsed?.code === ErrorCode.FOLDER_NOT_FOUND || parsed?.code === ErrorCode.SHARE_NOT_FOUND) {
     return 'missing';
+  }
+
+  // A bad id in the path arrived with the link, so no amount of retrying turns it into a folder
+  if (parsed?.code === ErrorCode.VALIDATION_ERROR) {
+    return 'malformed';
   }
 
   return 'unknown';
 };
 
+/** Nothing the reader can do changes the outcome, so these states never offer a retry. */
+const isTerminalFolderFailure = (failure: FolderFailure): boolean =>
+  failure === 'forbidden' || failure === 'malformed' || failure === 'missing';
+
 export {
+  isTerminalFolderFailure,
   toFolderErrors,
   toFolderFailure,
   type FolderErrorEntry,
