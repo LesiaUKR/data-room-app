@@ -8,7 +8,7 @@ const logger: Logger = pino({
   formatters: { log: redactLogObject },
   serializers: { err: serializeError },
   transport: config.isDevelopment
-    ? { target: 'pino-pretty', options: { colorize: true, translateTime: 'HH:MM:ss.l' } }
+    ? { target: 'pino-pretty', options: { colorize: true, translateTime: 'SYS:HH:MM:ss.l' } }
     : undefined,
 });
 
