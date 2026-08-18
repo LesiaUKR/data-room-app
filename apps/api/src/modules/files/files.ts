@@ -1,7 +1,7 @@
 import { filesContract } from '@data-room/contracts';
 import { initServer } from '@ts-rest/express';
 
-import { authenticate, getActor } from '../../libs/middleware/index.js';
+import { authenticate, getActor, getUserPrincipal } from '../../libs/middleware/index.js';
 import { accessPolicy } from '../../libs/modules/access/index.js';
 import { prisma } from '../../libs/modules/database/index.js';
 import { storage } from '../../libs/modules/storage/index.js';
@@ -35,11 +35,13 @@ const fileRouter = server.router(filesContract, {
   },
   getFile: {
     middleware: [authenticate],
-    handler: ({ params, req }) => fileController.getFile({ actor: getActor(req), params }),
+    handler: ({ params, req }) =>
+      fileController.getFile({ principal: getUserPrincipal(req), params }),
   },
   getDownloadUrl: {
     middleware: [authenticate],
-    handler: ({ params, req }) => fileController.getDownloadUrl({ actor: getActor(req), params }),
+    handler: ({ params, req }) =>
+      fileController.getDownloadUrl({ principal: getUserPrincipal(req), params }),
   },
   rename: {
     middleware: [authenticate],
@@ -56,4 +58,4 @@ const fileRouter = server.router(filesContract, {
   },
 });
 
-export { fileRouter, fileService };
+export { fileRepository, fileRouter, fileService };

@@ -10,7 +10,7 @@ import {
 } from '@data-room/contracts';
 
 import { HTTPCode } from '../../libs/modules/http/index.js';
-import { type Actor } from '../../libs/types/index.js';
+import { type Actor, type Principal } from '../../libs/types/index.js';
 import { type FileService } from './file.service.js';
 
 type FileControllerParameters = {
@@ -37,6 +37,11 @@ type CompleteRequest = {
 
 type FileRequest = {
   actor: Actor;
+  params: FileIdParams;
+};
+
+type FileReadRequest = {
+  principal: Principal;
   params: FileIdParams;
 };
 
@@ -85,14 +90,14 @@ class FileController {
     return { status: HTTPCode.OK, body: version };
   }
 
-  public async getFile({ actor, params }: FileRequest): Promise<FileDetailResult> {
-    const file = await this.fileService.getFile({ actor, fileId: params.fileId });
+  public async getFile({ principal, params }: FileReadRequest): Promise<FileDetailResult> {
+    const file = await this.fileService.getFile({ principal, fileId: params.fileId });
 
     return { status: HTTPCode.OK, body: file };
   }
 
-  public async getDownloadUrl({ actor, params }: FileRequest): Promise<DownloadUrlResult> {
-    const signed = await this.fileService.getDownloadUrl({ actor, fileId: params.fileId });
+  public async getDownloadUrl({ principal, params }: FileReadRequest): Promise<DownloadUrlResult> {
+    const signed = await this.fileService.getDownloadUrl({ principal, fileId: params.fileId });
 
     return { status: HTTPCode.OK, body: signed };
   }

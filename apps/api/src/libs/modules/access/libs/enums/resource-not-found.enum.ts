@@ -1,6 +1,4 @@
-import { ErrorCode } from '@data-room/contracts';
-
-import { ResourceKind } from './resource-kind.enum.js';
+import { ErrorCode, ResourceKind } from '@data-room/contracts';
 
 const resourceNotFound = {
   [ResourceKind.DATA_ROOM]: {

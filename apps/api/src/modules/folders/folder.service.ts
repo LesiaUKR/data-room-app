@@ -4,19 +4,20 @@ import {
   type ContentsResponse,
   ErrorCode,
   type Folder,
+  ResourceKind,
   type SubtreeStats,
 } from '@data-room/contracts';
 
-import { normalizeName, sweepRetiredVersions } from '../../libs/helpers/index.js';
-import { type AccessPolicy, ResourceKind } from '../../libs/modules/access/index.js';
+import { normalizeName, sweepRetiredVersions, toUserPrincipal } from '../../libs/helpers/index.js';
+import { type AccessDecision, type AccessPolicy } from '../../libs/modules/access/index.js';
 import { lockDataRoom, transaction } from '../../libs/modules/database/index.js';
 import { HTTPCode } from '../../libs/modules/http/index.js';
 import { type StorageProvider } from '../../libs/modules/storage/index.js';
-import { type Actor } from '../../libs/types/index.js';
+import { type Actor, type Principal } from '../../libs/types/index.js';
 import { type FolderRepository } from './folder.repository.js';
 import { FolderErrorMessage, FolderLimit } from './libs/enums/index.js';
 import { FolderError } from './libs/exceptions/index.js';
-import { decodeFolderCursor, LIST_START } from './libs/helpers/index.js';
+import { clampBreadcrumbs, decodeFolderCursor, LIST_START } from './libs/helpers/index.js';
 import { type FolderWithOwner } from './libs/types/index.js';
 
 type FolderServiceParameters = {
@@ -26,6 +27,12 @@ type FolderServiceParameters = {
 };
 
 type ReadRequest = {
+  principal: Principal;
+  folderId: string;
+};
+
+// Writes keep an Actor: no write route is public, and some flows need the acting user's id
+type WriteRequest = {
   actor: Actor;
   folderId: string;
 };
@@ -41,9 +48,11 @@ type CreateRequest = {
   name: string;
 };
 
-type RenameRequest = ReadRequest & {
+type RenameRequest = WriteRequest & {
   name: string;
 };
+
+type AuthorizedFolder = FolderWithOwner & { decision: AccessDecision };
 
 class FolderService {
   private readonly accessPolicy: AccessPolicy;
@@ -59,7 +68,11 @@ class FolderService {
   }
 
   public async getContents(request: ListRequest): Promise<ContentsResponse> {
-    const { folder } = await this.authorize(request.actor, request.folderId, Action.FOLDER_READ);
+    const { folder } = await this.authorize(
+      request.principal,
+      request.folderId,
+      Action.FOLDER_READ,
+    );
 
     const position =
       request.cursor === undefined
@@ -80,22 +93,26 @@ class FolderService {
   }
 
   public async getBreadcrumbs(request: ReadRequest): Promise<BreadcrumbsResponse> {
-    await this.authorize(request.actor, request.folderId, Action.FOLDER_READ);
+    const { decision } = await this.authorize(
+      request.principal,
+      request.folderId,
+      Action.FOLDER_READ,
+    );
 
     const items = await this.folderRepository.findAncestors(request.folderId);
 
-    return { items };
+    return { items: clampBreadcrumbs(items, decision) };
   }
 
   public async getSubtreeStats(request: ReadRequest): Promise<SubtreeStats> {
-    await this.authorize(request.actor, request.folderId, Action.FOLDER_READ);
+    await this.authorize(request.principal, request.folderId, Action.FOLDER_READ);
 
     return this.folderRepository.findSubtreeStats(request.folderId);
   }
 
   public async create(request: CreateRequest): Promise<Folder> {
     const { folder: parent } = await this.authorize(
-      request.actor,
+      toUserPrincipal(request.actor),
       request.parentFolderId,
       Action.FOLDER_CREATE,
     );
@@ -148,7 +165,11 @@ class FolderService {
   }
 
   public async rename(request: RenameRequest): Promise<Folder> {
-    const { folder } = await this.authorize(request.actor, request.folderId, Action.FOLDER_UPDATE);
+    const { folder } = await this.authorize(
+      toUserPrincipal(request.actor),
+      request.folderId,
+      Action.FOLDER_UPDATE,
+    );
 
     // Narrowing here also enforces the rule: only the root folder has no parent
     const parentFolderId = folder.getParentFolderId();
@@ -184,8 +205,12 @@ class FolderService {
     return renamed.toObject();
   }
 
-  public async remove(request: ReadRequest): Promise<void> {
-    const { folder } = await this.authorize(request.actor, request.folderId, Action.FOLDER_DELETE);
+  public async remove(request: WriteRequest): Promise<void> {
+    const { folder } = await this.authorize(
+      toUserPrincipal(request.actor),
+      request.folderId,
+      Action.FOLDER_DELETE,
+    );
 
     if (folder.isRoot()) {
       throw this.rootImmutableError();
@@ -221,27 +246,28 @@ class FolderService {
 
   /** Find inside the actor's reachable scope first, then ask whether the action is allowed. */
   private async authorize(
-    actor: Actor,
+    principal: Principal,
     folderId: string,
     action: Action,
-  ): Promise<FolderWithOwner> {
+  ): Promise<AuthorizedFolder> {
     const found = await this.folderRepository.findWithOwner(folderId);
 
     if (found === null) {
       throw this.notFoundError();
     }
 
-    this.accessPolicy.require({
-      actor,
+    const decision = await this.accessPolicy.require({
+      principal,
       action,
       resource: {
         kind: ResourceKind.FOLDER,
         dataRoomId: found.folder.getDataRoomId(),
         ownerId: found.ownerId,
+        folderId,
       },
     });
 
-    return found;
+    return { ...found, decision };
   }
 
   private notFoundError(): FolderError {

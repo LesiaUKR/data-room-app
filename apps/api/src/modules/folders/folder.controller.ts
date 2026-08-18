@@ -9,7 +9,7 @@ import {
 } from '@data-room/contracts';
 
 import { HTTPCode } from '../../libs/modules/http/index.js';
-import { type Actor } from '../../libs/types/index.js';
+import { type Actor, type Principal } from '../../libs/types/index.js';
 import { type FolderService } from './folder.service.js';
 
 type FolderControllerParameters = {
@@ -31,12 +31,17 @@ type RenameRequest = {
   body: RenameFolder;
 };
 
-type FolderRequest = {
+type WriteRequest = {
   actor: Actor;
   params: FolderIdParams;
 };
 
-type ContentsRequest = FolderRequest & {
+type ReadRequest = {
+  principal: Principal;
+  params: FolderIdParams;
+};
+
+type ContentsRequest = ReadRequest & {
   query: ContentsQuery;
 };
 
@@ -74,15 +79,19 @@ class FolderController {
     return { status: HTTPCode.OK, body: folder };
   }
 
-  public async remove({ actor, params }: FolderRequest): Promise<RemoveResult> {
+  public async remove({ actor, params }: WriteRequest): Promise<RemoveResult> {
     await this.folderService.remove({ actor, folderId: params.folderId });
 
     return { status: HTTPCode.NO_CONTENT, body: undefined };
   }
 
-  public async listContents({ actor, params, query }: ContentsRequest): Promise<ContentsResult> {
+  public async listContents({
+    principal,
+    params,
+    query,
+  }: ContentsRequest): Promise<ContentsResult> {
     const contents = await this.folderService.getContents({
-      actor,
+      principal,
       folderId: params.folderId,
       limit: query.limit,
       cursor: query.cursor,
@@ -91,18 +100,18 @@ class FolderController {
     return { status: HTTPCode.OK, body: contents };
   }
 
-  public async listBreadcrumbs({ actor, params }: FolderRequest): Promise<BreadcrumbsResult> {
+  public async listBreadcrumbs({ principal, params }: ReadRequest): Promise<BreadcrumbsResult> {
     const breadcrumbs = await this.folderService.getBreadcrumbs({
-      actor,
+      principal,
       folderId: params.folderId,
     });
 
     return { status: HTTPCode.OK, body: breadcrumbs };
   }
 
-  public async subtreeStats({ actor, params }: FolderRequest): Promise<SubtreeStatsResult> {
+  public async subtreeStats({ principal, params }: ReadRequest): Promise<SubtreeStatsResult> {
     const stats = await this.folderService.getSubtreeStats({
-      actor,
+      principal,
       folderId: params.folderId,
     });
 

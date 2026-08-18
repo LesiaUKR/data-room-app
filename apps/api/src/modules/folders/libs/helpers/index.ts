@@ -1,3 +1,4 @@
+export { clampBreadcrumbs } from './clamp-breadcrumbs.helper.js';
 export {
   decodeFolderCursor,
   encodeFolderCursor,

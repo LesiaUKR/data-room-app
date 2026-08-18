@@ -7,14 +7,15 @@ import {
   type FileDetail,
   ErrorCode,
   FileVersionStatus,
+  ResourceKind,
   type SignedUrlResponse,
   type UploadIntent,
   UploadMode,
   uploadLimits,
 } from '@data-room/contracts';
 
-import { normalizeName, sweepRetiredVersions } from '../../libs/helpers/index.js';
-import { type AccessPolicy, ResourceKind } from '../../libs/modules/access/index.js';
+import { normalizeName, sweepRetiredVersions, toUserPrincipal } from '../../libs/helpers/index.js';
+import { type AccessPolicy } from '../../libs/modules/access/index.js';
 import {
   lockDataRoom,
   transaction,
@@ -27,7 +28,7 @@ import {
   type StorageProvider,
   type StoredObject,
 } from '../../libs/modules/storage/index.js';
-import { type Actor } from '../../libs/types/index.js';
+import { type Actor, type Principal } from '../../libs/types/index.js';
 import { type FolderRepository } from '../folders/folder.repository.js';
 import { type FolderWithOwner } from '../folders/libs/types/index.js';
 import { type FileVersionEntity } from './file-version.entity.js';
@@ -55,6 +56,12 @@ type FileServiceParameters = {
 
 type FileRequest = {
   actor: Actor;
+  fileId: string;
+};
+
+// Reads accept a public-link principal too; no write route is public
+type FileReadRequest = {
+  principal: Principal;
   fileId: string;
 };
 
@@ -127,7 +134,11 @@ class FileService {
   }
 
   public async createUploadIntent(request: UploadIntentRequest): Promise<UploadIntent> {
-    const target = await this.authorizeFolder(request.actor, request.folderId, Action.FILE_CREATE);
+    const target = await this.authorizeFolder(
+      toUserPrincipal(request.actor),
+      request.folderId,
+      Action.FILE_CREATE,
+    );
 
     const reservation = await this.reserveVersion({
       actor: request.actor,
@@ -160,7 +171,11 @@ class FileService {
     }
 
     // A write into the folder, so a grant on the file alone must not authorize it
-    await this.authorizeFolder(request.actor, found.file.getFolderId(), Action.FILE_CREATE);
+    await this.authorizeFolder(
+      toUserPrincipal(request.actor),
+      found.file.getFolderId(),
+      Action.FILE_CREATE,
+    );
 
     if (found.version.isReady()) {
       return this.toCompletedVersion({
@@ -218,8 +233,8 @@ class FileService {
     };
   }
 
-  public async getFile(request: FileRequest): Promise<FileDetail> {
-    const { file } = await this.authorizeFile(request.actor, request.fileId, Action.FILE_READ);
+  public async getFile(request: FileReadRequest): Promise<FileDetail> {
+    const { file } = await this.authorizeFile(request.principal, request.fileId, Action.FILE_READ);
 
     const version = await this.fileRepository.findCurrentVersion(request.fileId);
     const sizeBytes = version?.getSizeBytes() ?? null;
@@ -237,8 +252,8 @@ class FileService {
     };
   }
 
-  public async getDownloadUrl(request: FileRequest): Promise<SignedUrlResponse> {
-    await this.authorizeFile(request.actor, request.fileId, Action.FILE_READ);
+  public async getDownloadUrl(request: FileReadRequest): Promise<SignedUrlResponse> {
+    await this.authorizeFile(request.principal, request.fileId, Action.FILE_READ);
 
     const version = await this.fileRepository.findCurrentVersion(request.fileId);
 
@@ -252,7 +267,11 @@ class FileService {
   }
 
   public async rename(request: RenameRequest): Promise<DataRoomFile> {
-    const { file } = await this.authorizeFile(request.actor, request.fileId, Action.FILE_UPDATE);
+    const { file } = await this.authorizeFile(
+      toUserPrincipal(request.actor),
+      request.fileId,
+      Action.FILE_UPDATE,
+    );
 
     const normalizedName = this.toNormalizedName(request.name);
 
@@ -276,13 +295,21 @@ class FileService {
   }
 
   public async move(request: MoveRequest): Promise<DataRoomFile> {
-    const source = await this.authorizeFile(request.actor, request.fileId, Action.FILE_UPDATE);
+    const source = await this.authorizeFile(
+      toUserPrincipal(request.actor),
+      request.fileId,
+      Action.FILE_UPDATE,
+    );
 
     if (source.file.getFolderId() === request.folderId) {
       return source.file.toObject();
     }
 
-    const target = await this.authorizeFolder(request.actor, request.folderId, Action.FILE_CREATE);
+    const target = await this.authorizeFolder(
+      toUserPrincipal(request.actor),
+      request.folderId,
+      Action.FILE_CREATE,
+    );
 
     // One owner may hold several rooms; a target outside this file's room is simply not there
     if (target.folder.getDataRoomId() !== source.file.getDataRoomId()) {
@@ -316,7 +343,11 @@ class FileService {
   }
 
   public async remove(request: FileRequest): Promise<void> {
-    const { file } = await this.authorizeFile(request.actor, request.fileId, Action.FILE_DELETE);
+    const { file } = await this.authorizeFile(
+      toUserPrincipal(request.actor),
+      request.fileId,
+      Action.FILE_DELETE,
+    );
 
     const retired = await transaction(async (tx) => {
       await lockDataRoom(file.getDataRoomId(), tx);
@@ -525,7 +556,7 @@ class FileService {
   }
 
   private async authorizeFile(
-    actor: Actor,
+    principal: Principal,
     fileId: string,
     action: Action,
   ): Promise<FileWithOwner> {
@@ -535,13 +566,15 @@ class FileService {
       throw this.notFoundError();
     }
 
-    this.accessPolicy.require({
-      actor,
+    await this.accessPolicy.require({
+      principal,
       action,
       resource: {
         kind: ResourceKind.FILE,
         dataRoomId: found.file.getDataRoomId(),
         ownerId: found.ownerId,
+        fileId,
+        folderId: found.file.getFolderId(),
       },
     });
 
@@ -549,7 +582,7 @@ class FileService {
   }
 
   private async authorizeFolder(
-    actor: Actor,
+    principal: Principal,
     folderId: string,
     action: Action,
   ): Promise<FolderWithOwner> {
@@ -559,13 +592,14 @@ class FileService {
       throw this.folderNotFoundError();
     }
 
-    this.accessPolicy.require({
-      actor,
+    await this.accessPolicy.require({
+      principal,
       action,
       resource: {
         kind: ResourceKind.FOLDER,
         dataRoomId: found.folder.getDataRoomId(),
         ownerId: found.ownerId,
+        folderId,
       },
     });
 

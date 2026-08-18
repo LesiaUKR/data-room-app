@@ -1,7 +1,7 @@
 import { foldersContract } from '@data-room/contracts';
 import { initServer } from '@ts-rest/express';
 
-import { authenticate, getActor } from '../../libs/middleware/index.js';
+import { authenticate, getActor, getUserPrincipal } from '../../libs/middleware/index.js';
 import { accessPolicy } from '../../libs/modules/access/index.js';
 import { prisma } from '../../libs/modules/database/index.js';
 import { storage } from '../../libs/modules/storage/index.js';
@@ -35,16 +35,17 @@ const folderRouter = server.router(foldersContract, {
   listContents: {
     middleware: [authenticate],
     handler: ({ params, query, req }) =>
-      folderController.listContents({ actor: getActor(req), params, query }),
+      folderController.listContents({ principal: getUserPrincipal(req), params, query }),
   },
   listBreadcrumbs: {
     middleware: [authenticate],
     handler: ({ params, req }) =>
-      folderController.listBreadcrumbs({ actor: getActor(req), params }),
+      folderController.listBreadcrumbs({ principal: getUserPrincipal(req), params }),
   },
   subtreeStats: {
     middleware: [authenticate],
-    handler: ({ params, req }) => folderController.subtreeStats({ actor: getActor(req), params }),
+    handler: ({ params, req }) =>
+      folderController.subtreeStats({ principal: getUserPrincipal(req), params }),
   },
 });
 

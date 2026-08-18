@@ -1,9 +1,10 @@
 import { ErrorCode } from '@data-room/contracts';
 import { type NextFunction, type Request, type Response } from 'express';
 
+import { toUserPrincipal } from '../helpers/index.js';
 import { readSessionToken, tokenSigner } from '../modules/auth/index.js';
 import { HTTPCode, HTTPError } from '../modules/http/index.js';
-import { type Actor } from '../types/index.js';
+import { type Actor, type Principal } from '../types/index.js';
 
 const UNAUTHORIZED_MESSAGE = 'Authentication is required.';
 
@@ -41,4 +42,7 @@ const getActor = (request: Pick<ActorRequest, 'actor'>): Actor => {
   return request.actor;
 };
 
-export { authenticate, getActor };
+const getUserPrincipal = (request: Pick<ActorRequest, 'actor'>): Principal =>
+  toUserPrincipal(getActor(request));
+
+export { authenticate, getActor, getUserPrincipal };
