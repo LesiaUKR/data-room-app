@@ -2,6 +2,7 @@ export { DeleteFileDialog } from './DeleteFileDialog';
 export { DownloadFileButton } from './DownloadFileButton';
 export { FileDropzone } from './FileDropzone';
 export { FileNameCell } from './FileNameCell';
+export { BackButton, FileViewer, type DownloadState, type FileViewState } from './FileViewer';
 export { FileNameEditor } from './FileNameEditor';
 export { FileRowMenu } from './FileRowMenu';
 export { MoveFileDialog } from './MoveFileDialog';

@@ -75,4 +75,11 @@ const useFileMutations = (currentFolderId: string) => {
   return { rename, move, remove };
 };
 
-export { fileQueryKey, invalidateFolderStats, useFile, useFileDownloadUrl, useFileMutations };
+export {
+  DOWNLOAD_URL_STALE_MS,
+  fileQueryKey,
+  invalidateFolderStats,
+  useFile,
+  useFileDownloadUrl,
+  useFileMutations,
+};

@@ -1,87 +1,32 @@
 import { Link } from '@tanstack/react-router';
-import { ArrowLeft, LoaderCircle } from 'lucide-react';
-import { type ReactElement, type ReactNode } from 'react';
+import { ArrowLeft } from 'lucide-react';
+import { type ReactElement } from 'react';
 
-import { Button } from '@/components/ui/button';
-import { useSession } from '@/features/auth/hooks';
-import { useDocumentTitle } from '@/hooks';
 import { tsr } from '@/lib/api-client';
-import { formatBytes } from '@/lib/format-bytes';
 
-import { DownloadFileButton } from '../components';
-import { useFile, useFileDownloadUrl, usePdfObjectUrl } from '../hooks';
-import { toFileErrorMessage, toFileFailure } from '../utils/to-file-error';
+import {
+  BackButton,
+  FileViewer,
+  type DownloadState,
+  type FileViewState,
+} from '../components/FileViewer';
+import { useFile, useFileDownloadUrl } from '../hooks';
+import { toFileErrorMessage, toFileViewFailure } from '../utils/to-file-error';
 
-const APP_TITLE = 'Data Room';
-
-const PREVIEW_FAILED_MESSAGE =
-  'This document could not be shown here. Use Download to open it with another application.';
+/** Where the document was opened from. A new tab has no history, so the way back travels in the URL. */
+type FileOrigin = {
+  from?: 'room' | 'shared';
+  folder?: string;
+};
 
 type FileViewerPageProperties = {
   fileId: string;
+  origin: FileOrigin;
 };
 
-const FileViewerPage = ({ fileId }: FileViewerPageProperties): ReactElement => {
-  const { session } = useSession();
-
+const FileViewerPage = ({ fileId, origin }: FileViewerPageProperties): ReactElement => {
   const file = useFile(fileId);
   const download = useFileDownloadUrl(fileId);
-
-  const detail = file.data?.status === 200 ? file.data.body : null;
-  const signedUrl = download.data?.status === 200 ? download.data.body.url : null;
-
-  const { objectUrl, hasFailed } = usePdfObjectUrl(signedUrl);
-
-  useDocumentTitle(detail === null ? APP_TITLE : `${detail.name} — ${APP_TITLE}`);
-
-  const rootFolderId = session?.dataRoom.rootFolderId ?? null;
-
-  const backSearch =
-    detail === null || detail.folderId === rootFolderId ? {} : { folder: detail.folderId };
-
-  if (file.isPending) {
-    return (
-      <ViewerShell backSearch={{}}>
-        <ViewerState>
-          <LoaderCircle
-            className="size-5 animate-spin motion-reduce:animate-none"
-            aria-hidden="true"
-          />
-          <p>Opening the document…</p>
-        </ViewerState>
-      </ViewerShell>
-    );
-  }
-
-  if (detail === null) {
-    const failure = toFileFailure(file.error ?? file.data);
-
-    return (
-      <ViewerShell backSearch={{}}>
-        <ViewerState>
-          <p>
-            {failure === 'missing'
-              ? 'This document is no longer available. It may have been deleted.'
-              : toFileErrorMessage(file.error ?? file.data)}
-          </p>
-
-          {failure === 'missing' || failure === 'forbidden' ? null : (
-            <Button type="button" variant="outline" size="sm" onClick={() => void file.refetch()}>
-              Try again
-            </Button>
-          )}
-        </ViewerState>
-      </ViewerShell>
-    );
-  }
-
-  const downloadFailure =
-    download.isError || (download.data !== undefined && download.data.status !== 200)
-      ? toFileErrorMessage(download.error ?? download.data)
-      : null;
-
-  const isPreparing =
-    download.isPending || (signedUrl !== null && objectUrl === null && !hasFailed);
 
   /**
    * An imperative call, deliberately not `download.refetch()`. A refetch writes to the observed
@@ -99,96 +44,85 @@ const FileViewerPage = ({ fileId }: FileViewerPageProperties): ReactElement => {
     }
   };
 
-  return (
-    <ViewerShell
-      backSearch={backSearch}
-      name={detail.name}
-      meta={`${formatBytes(detail.sizeBytes)} · version ${detail.versionNumber}`}
-      actions={
-        <DownloadFileButton
-          fileName={detail.name}
-          objectUrl={objectUrl}
-          canDownload={signedUrl !== null}
-          onRequestFreshUrl={requestFreshUrl}
-        />
-      }
-    >
-      {isPreparing && downloadFailure === null ? (
-        <ViewerState>
-          <LoaderCircle
-            className="size-5 animate-spin motion-reduce:animate-none"
-            aria-hidden="true"
-          />
-          <p>Loading the document…</p>
-        </ViewerState>
-      ) : null}
+  const resolveDownload = (): DownloadState => {
+    if (download.isError || (download.data !== undefined && download.data.status !== 200)) {
+      return { status: 'failed', message: toFileErrorMessage(download.error ?? download.data) };
+    }
 
-      {downloadFailure === null ? null : (
-        <ViewerState>
-          <p>{downloadFailure}</p>
-          <Button type="button" variant="outline" size="sm" onClick={() => void download.refetch()}>
-            Try again
-          </Button>
-        </ViewerState>
-      )}
+    if (download.data?.status === 200) {
+      return { status: 'ready', signedUrl: download.data.body.url };
+    }
 
-      {hasFailed && downloadFailure === null ? (
-        <ViewerState>
-          <p>{PREVIEW_FAILED_MESSAGE}</p>
-          <Button type="button" variant="outline" size="sm" onClick={() => void download.refetch()}>
-            Try again
-          </Button>
-        </ViewerState>
-      ) : null}
+    return { status: 'pending' };
+  };
 
-      {objectUrl === null ? null : (
-        <iframe src={objectUrl} title={detail.name} className="size-full border-0" />
-      )}
-    </ViewerShell>
-  );
-};
+  const resolveFile = (): FileViewState => {
+    if (file.isPending) {
+      return { status: 'pending' };
+    }
 
-type ViewerShellProperties = {
-  children: ReactNode;
-  backSearch: { folder?: string };
-  name?: string;
-  meta?: string;
-  actions?: ReactNode;
-};
+    if (file.isError) {
+      const { message, isTerminal } = toFileViewFailure(file.error);
 
-const ViewerShell = ({
-  children,
-  backSearch,
-  name,
-  meta,
-  actions,
-}: ViewerShellProperties): ReactElement => (
-  <div className="flex h-screen flex-col bg-muted/30">
-    <header className="flex shrink-0 flex-wrap items-center gap-3 border-b bg-background px-4 py-3 sm:px-6">
-      <Button asChild variant="ghost" size="icon" aria-label="Back to the data room">
-        <Link to="/" search={backSearch}>
+      return {
+        status: 'failed',
+        message,
+        onRetry: isTerminal
+          ? undefined
+          : () => {
+              void file.refetch();
+            },
+      };
+    }
+
+    const detail = file.data?.status === 200 ? file.data.body : null;
+
+    if (detail === null) {
+      const { message, isTerminal } = toFileViewFailure(file.error ?? file.data);
+
+      return {
+        status: 'failed',
+        message,
+        onRetry: isTerminal
+          ? undefined
+          : () => {
+              void file.refetch();
+            },
+      };
+    }
+
+    return {
+      status: 'ready',
+      detail,
+      download: resolveDownload(),
+      onRetryDownload: () => {
+        void download.refetch();
+      },
+      requestFreshUrl,
+    };
+  };
+
+  const back =
+    origin.from === 'shared' && origin.folder !== undefined ? (
+      <BackButton label="Back to the shared folder">
+        <Link to="/folders/$folderId" params={{ folderId: origin.folder }}>
           <ArrowLeft aria-hidden="true" />
         </Link>
-      </Button>
+      </BackButton>
+    ) : (
+      <BackButton label="Back to the data room">
+        <Link
+          to="/"
+          search={
+            origin.from === 'room' && origin.folder !== undefined ? { folder: origin.folder } : {}
+          }
+        >
+          <ArrowLeft aria-hidden="true" />
+        </Link>
+      </BackButton>
+    );
 
-      <div className="min-w-0 flex-1">
-        <h1 className="truncate text-sm font-semibold" title={name}>
-          {name ?? 'Document'}
-        </h1>
-        {meta === undefined ? null : <p className="text-xs text-muted-foreground">{meta}</p>}
-      </div>
-
-      {actions}
-    </header>
-
-    <main className="min-h-0 flex-1">{children}</main>
-  </div>
-);
-
-const ViewerState = ({ children }: { children: ReactNode }): ReactElement => (
-  <div className="flex size-full flex-col items-center justify-center gap-3 p-6 text-center text-sm text-muted-foreground">
-    {children}
-  </div>
-);
+  return <FileViewer file={resolveFile()} back={back} />;
+};
 
 export { FileViewerPage };

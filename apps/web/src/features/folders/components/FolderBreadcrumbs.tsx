@@ -1,74 +1,77 @@
-import { Link } from '@tanstack/react-router';
 import { type ReactElement, type ReactNode } from 'react';
 
 import { Button } from '@/components/ui/button';
 
-import { useFolderBreadcrumbs } from '../hooks';
-import { toFolderFailure } from '../utils/to-folder-error';
+type BreadcrumbItem = {
+  id: string;
+  name: string;
+};
+
+// Only the states the trail can actually be in: never pending and ready, never retry without a failure
+type BreadcrumbTrail =
+  | { status: 'hidden' }
+  | { status: 'pending' }
+  | { status: 'unavailable' }
+  | { status: 'failed'; onRetry: () => void }
+  | { status: 'ready'; items: BreadcrumbItem[] };
 
 type FolderBreadcrumbsProperties = {
-  currentFolderId: string;
-  rootFolderId: string;
+  trail: BreadcrumbTrail;
+  renderItem: (item: BreadcrumbItem, isCurrent: boolean) => ReactElement;
+  renderHome?: () => ReactElement;
 };
 
 const FolderBreadcrumbs = ({
-  currentFolderId,
-  rootFolderId,
-}: FolderBreadcrumbsProperties): ReactElement => {
-  const breadcrumbs = useFolderBreadcrumbs(currentFolderId);
-  const isRoot = currentFolderId === rootFolderId;
+  trail,
+  renderItem,
+  renderHome,
+}: FolderBreadcrumbsProperties): ReactElement => (
+  <nav
+    aria-label="Folder breadcrumbs"
+    className="flex items-center gap-1 overflow-x-auto overflow-y-hidden"
+  >
+    {renderHome === undefined ? null : renderHome()}
 
-  const items = breadcrumbs.data?.status === 200 ? breadcrumbs.data.body.items : [];
-
-  return (
-    <nav
-      aria-label="Folder breadcrumbs"
-      className="flex items-center gap-1 overflow-x-auto overflow-y-hidden"
-    >
-      <Button asChild variant={isRoot ? 'secondary' : 'ghost'} size="sm">
-        <Link to="/" search={{}}>
-          My data room
-        </Link>
-      </Button>
-
-      {isRoot ? null : <Trail breadcrumbs={breadcrumbs} items={items} />}
-    </nav>
-  );
-};
+    <Trail trail={trail} renderItem={renderItem} hasLeading={renderHome !== undefined} />
+  </nav>
+);
 
 type TrailProperties = {
-  breadcrumbs: ReturnType<typeof useFolderBreadcrumbs>;
-  items: { id: string; name: string }[];
+  trail: BreadcrumbTrail;
+  renderItem: (item: BreadcrumbItem, isCurrent: boolean) => ReactElement;
+  hasLeading: boolean;
 };
 
-const Trail = ({ breadcrumbs, items }: TrailProperties): ReactElement => {
-  if (breadcrumbs.isPending) {
+const Trail = ({ trail, renderItem, hasLeading }: TrailProperties): ReactElement | null => {
+  if (trail.status === 'hidden') {
+    return null;
+  }
+
+  if (trail.status === 'pending') {
     return (
-      <Segment>
+      <Segment withSeparator={hasLeading}>
         <span className="px-2 text-sm text-muted-foreground">Loading path…</span>
       </Segment>
     );
   }
 
-  if (breadcrumbs.isError) {
-    const failure = toFolderFailure(breadcrumbs.error);
-
-    if (failure === 'missing' || failure === 'forbidden') {
-      return (
-        <Segment>
-          <span className="px-2 text-sm text-muted-foreground">Unavailable</span>
-        </Segment>
-      );
-    }
-
+  if (trail.status === 'unavailable') {
     return (
-      <Segment>
+      <Segment withSeparator={hasLeading}>
+        <span className="px-2 text-sm text-muted-foreground">Unavailable</span>
+      </Segment>
+    );
+  }
+
+  if (trail.status === 'failed') {
+    return (
+      <Segment withSeparator={hasLeading}>
         <Button
           type="button"
           variant="ghost"
           size="sm"
           className="text-destructive"
-          onClick={() => void breadcrumbs.refetch()}
+          onClick={trail.onRetry}
         >
           Path unavailable — retry
         </Button>
@@ -78,26 +81,29 @@ const Trail = ({ breadcrumbs, items }: TrailProperties): ReactElement => {
 
   return (
     <>
-      {items.map((item, index) => (
-        <Segment key={item.id}>
-          <Button asChild variant={index === items.length - 1 ? 'secondary' : 'ghost'} size="sm">
-            <Link to="/" search={{ folder: item.id }}>
-              {item.name}
-            </Link>
-          </Button>
+      {trail.items.map((item, index) => (
+        <Segment key={item.id} withSeparator={hasLeading || index > 0}>
+          {renderItem(item, index === trail.items.length - 1)}
         </Segment>
       ))}
     </>
   );
 };
 
-const Segment = ({ children }: { children: ReactNode }): ReactElement => (
+type SegmentProperties = {
+  children: ReactNode;
+  withSeparator: boolean;
+};
+
+const Segment = ({ children, withSeparator }: SegmentProperties): ReactElement => (
   <span className="flex items-center gap-1">
-    <span aria-hidden="true" className="text-muted-foreground">
-      /
-    </span>
+    {withSeparator ? (
+      <span aria-hidden="true" className="text-muted-foreground">
+        /
+      </span>
+    ) : null}
     {children}
   </span>
 );
 
-export { FolderBreadcrumbs };
+export { FolderBreadcrumbs, type BreadcrumbItem, type BreadcrumbTrail };

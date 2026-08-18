@@ -1,4 +1,4 @@
-import { MoreVertical, Pencil, Trash2 } from 'lucide-react';
+import { MoreVertical, Pencil, Share2, Trash2 } from 'lucide-react';
 import { type ReactElement } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -13,12 +13,14 @@ import {
 type FolderRowMenuProperties = {
   folderName: string;
   onRename: () => void;
+  onShare: () => void;
   onDelete: () => void;
 };
 
 const FolderRowMenu = ({
   folderName,
   onRename,
+  onShare,
   onDelete,
 }: FolderRowMenuProperties): ReactElement => (
   <DropdownMenu>
@@ -39,6 +41,11 @@ const FolderRowMenu = ({
       <DropdownMenuItem onSelect={onRename}>
         <Pencil aria-hidden="true" />
         Rename
+      </DropdownMenuItem>
+
+      <DropdownMenuItem onSelect={onShare}>
+        <Share2 aria-hidden="true" />
+        Share…
       </DropdownMenuItem>
 
       <DropdownMenuSeparator />

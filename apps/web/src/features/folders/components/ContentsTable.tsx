@@ -2,21 +2,21 @@ import { flexRender, getCoreRowModel, useReactTable, type ColumnDef } from '@tan
 import { useMemo, useState, type MouseEvent, type ReactElement } from 'react';
 
 import {
+  ResourceKind,
   type ContentsEntry,
   type ContentsFileEntry,
   type ContentsFolderEntry,
+  type ShareTarget,
 } from '@data-room/contracts';
 
-import {
-  DeleteFileDialog,
-  FileNameCell,
-  FileRowMenu,
-  MoveFileDialog,
-} from '@/features/files/components';
-import { openFileInNewTab } from '@/features/files/utils/file-href';
+import { DeleteFileDialog } from '@/features/files/components/DeleteFileDialog';
+import { FileNameCell } from '@/features/files/components/FileNameCell';
+import { FileRowMenu } from '@/features/files/components/FileRowMenu';
+import { MoveFileDialog } from '@/features/files/components/MoveFileDialog';
 import { formatBytes } from '@/lib/format-bytes';
 import { cn } from '@/lib/utils';
 
+import { type ContentsNavigation } from './contents-navigation.type';
 import { DeleteFolderDialog } from './DeleteFolderDialog';
 import { FolderNameCell } from './FolderNameCell';
 import { FolderRowMenu } from './FolderRowMenu';
@@ -32,18 +32,23 @@ const COLUMN_CLASS: Record<string, string> = {
 
 const NO_VALUE = '—';
 
-type ContentsTableProperties = {
-  entries: ContentsEntry[];
+// Its presence is the write capability: no context, no editors, no menus, no dialogs
+type ContentsWriteContext = {
   currentFolderId: string;
   rootFolderId: string;
-  onOpenFolder: (folderId: string) => void;
+  onShare: (request: { target: ShareTarget; name: string }) => void;
+};
+
+type ContentsTableProperties = {
+  entries: ContentsEntry[];
+  navigation: ContentsNavigation;
+  writeContext?: ContentsWriteContext;
 };
 
 const ContentsTable = ({
   entries,
-  currentFolderId,
-  rootFolderId,
-  onOpenFolder,
+  navigation,
+  writeContext,
 }: ContentsTableProperties): ReactElement => {
   const [deleteTarget, setDeleteTarget] = useState<ContentsFolderEntry | null>(null);
 
@@ -53,8 +58,8 @@ const ContentsTable = ({
   const [moveFile, setMoveFile] = useState<ContentsFileEntry | null>(null);
   const [deleteFile, setDeleteFile] = useState<ContentsFileEntry | null>(null);
 
-  const columns = useMemo<ColumnDef<ContentsEntry>[]>(
-    () => [
+  const columns = useMemo<ColumnDef<ContentsEntry>[]>(() => {
+    const baseColumns: ColumnDef<ContentsEntry>[] = [
       {
         id: 'name',
         header: 'Name',
@@ -65,10 +70,17 @@ const ContentsTable = ({
             return (
               <FolderNameCell
                 folder={entry}
-                parentFolderId={currentFolderId}
-                isEditing={editingFolderId === entry.id}
-                onEditStart={() => setEditingFolderId(entry.id)}
-                onEditEnd={() => setEditingFolderId(null)}
+                renderLink={navigation.renderFolderLink}
+                editing={
+                  writeContext === undefined
+                    ? undefined
+                    : {
+                        parentFolderId: writeContext.currentFolderId,
+                        isEditing: editingFolderId === entry.id,
+                        onEditStart: () => setEditingFolderId(entry.id),
+                        onEditEnd: () => setEditingFolderId(null),
+                      }
+                }
               />
             );
           }
@@ -76,10 +88,17 @@ const ContentsTable = ({
           return (
             <FileNameCell
               file={entry}
-              folderId={currentFolderId}
-              isEditing={editingFileId === entry.id}
-              onEditStart={() => setEditingFileId(entry.id)}
-              onEditEnd={() => setEditingFileId(null)}
+              renderLink={navigation.renderFileLink}
+              editing={
+                writeContext === undefined
+                  ? undefined
+                  : {
+                      folderId: writeContext.currentFolderId,
+                      isEditing: editingFileId === entry.id,
+                      onEditStart: () => setEditingFileId(entry.id),
+                      onEditEnd: () => setEditingFileId(null),
+                    }
+              }
             />
           );
         },
@@ -109,6 +128,14 @@ const ContentsTable = ({
         header: 'Updated',
         cell: ({ row }) => new Date(row.original.updatedAt).toLocaleDateString(),
       },
+    ];
+
+    if (writeContext === undefined) {
+      return baseColumns;
+    }
+
+    return [
+      ...baseColumns,
       {
         id: 'actions',
         header: () => <span className="sr-only">Actions</span>,
@@ -120,6 +147,12 @@ const ContentsTable = ({
               <FolderRowMenu
                 folderName={entry.name}
                 onRename={() => setEditingFolderId(entry.id)}
+                onShare={() =>
+                  writeContext.onShare({
+                    target: { kind: ResourceKind.FOLDER, id: entry.id },
+                    name: entry.name,
+                  })
+                }
                 onDelete={() => setDeleteTarget(entry)}
               />
             );
@@ -128,17 +161,22 @@ const ContentsTable = ({
           return (
             <FileRowMenu
               fileName={entry.name}
-              onOpen={() => openFileInNewTab(entry.id)}
+              onOpen={() => navigation.openFileInNewTab(entry.id)}
               onRename={() => setEditingFileId(entry.id)}
               onMove={() => setMoveFile(entry)}
+              onShare={() =>
+                writeContext.onShare({
+                  target: { kind: ResourceKind.FILE, id: entry.id },
+                  name: entry.name,
+                })
+              }
               onDelete={() => setDeleteFile(entry)}
             />
           );
         },
       },
-    ],
-    [currentFolderId, editingFileId, editingFolderId, onOpenFolder],
-  );
+    ];
+  }, [editingFileId, editingFolderId, navigation, writeContext]);
 
   const table = useReactTable({
     data: entries,
@@ -191,7 +229,7 @@ const ContentsTable = ({
                       return;
                     }
 
-                    onOpenFolder(entry.id);
+                    navigation.openFolder(entry.id);
                   }
                 : undefined;
 
@@ -219,29 +257,33 @@ const ContentsTable = ({
         </table>
       </div>
 
-      {deleteTarget === null ? null : (
-        <DeleteFolderDialog
-          folder={deleteTarget}
-          parentFolderId={currentFolderId}
-          onClose={() => setDeleteTarget(null)}
-        />
-      )}
+      {writeContext === undefined ? null : (
+        <>
+          {deleteTarget === null ? null : (
+            <DeleteFolderDialog
+              folder={deleteTarget}
+              parentFolderId={writeContext.currentFolderId}
+              onClose={() => setDeleteTarget(null)}
+            />
+          )}
 
-      {moveFile === null ? null : (
-        <MoveFileDialog
-          file={moveFile}
-          currentFolderId={currentFolderId}
-          rootFolderId={rootFolderId}
-          onClose={() => setMoveFile(null)}
-        />
-      )}
+          {moveFile === null ? null : (
+            <MoveFileDialog
+              file={moveFile}
+              currentFolderId={writeContext.currentFolderId}
+              rootFolderId={writeContext.rootFolderId}
+              onClose={() => setMoveFile(null)}
+            />
+          )}
 
-      {deleteFile === null ? null : (
-        <DeleteFileDialog
-          file={deleteFile}
-          currentFolderId={currentFolderId}
-          onClose={() => setDeleteFile(null)}
-        />
+          {deleteFile === null ? null : (
+            <DeleteFileDialog
+              file={deleteFile}
+              currentFolderId={writeContext.currentFolderId}
+              onClose={() => setDeleteFile(null)}
+            />
+          )}
+        </>
       )}
     </>
   );

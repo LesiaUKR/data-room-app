@@ -1,4 +1,4 @@
-import { ExternalLink, FolderInput, MoreVertical, Pencil, Trash2 } from 'lucide-react';
+import { ExternalLink, FolderInput, MoreVertical, Pencil, Share2, Trash2 } from 'lucide-react';
 import { type ReactElement } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,7 @@ type FileRowMenuProperties = {
   onOpen: () => void;
   onRename: () => void;
   onMove: () => void;
+  onShare: () => void;
   onDelete: () => void;
 };
 
@@ -23,6 +24,7 @@ const FileRowMenu = ({
   onOpen,
   onRename,
   onMove,
+  onShare,
   onDelete,
 }: FileRowMenuProperties): ReactElement => (
   <DropdownMenu>
@@ -53,6 +55,11 @@ const FileRowMenu = ({
       <DropdownMenuItem onSelect={onMove}>
         <FolderInput aria-hidden="true" />
         Move to…
+      </DropdownMenuItem>
+
+      <DropdownMenuItem onSelect={onShare}>
+        <Share2 aria-hidden="true" />
+        Share…
       </DropdownMenuItem>
 
       <DropdownMenuSeparator />

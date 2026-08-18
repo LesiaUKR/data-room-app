@@ -1,4 +1,4 @@
-import { Navigate } from '@tanstack/react-router';
+import { Navigate, useRouterState } from '@tanstack/react-router';
 import { type PropsWithChildren, type ReactElement } from 'react';
 
 import { FullPageMessage } from '@/components/FullPageMessage';
@@ -8,6 +8,9 @@ import { useSession } from '../hooks';
 
 const RequireSession = ({ children }: PropsWithChildren): ReactElement => {
   const { refetch, session, status } = useSession();
+
+  // Path with search and hash, no origin - the deep link the visitor actually asked for
+  const returnTo = useRouterState({ select: (state) => state.location.href });
 
   if (status === 'pending') {
     return <FullPageMessage>Checking your session…</FullPageMessage>;
@@ -23,7 +26,7 @@ const RequireSession = ({ children }: PropsWithChildren): ReactElement => {
   }
 
   if (status === 'anonymous' || session === null) {
-    return <Navigate to="/sign-in" replace />;
+    return <Navigate to="/sign-in" search={{ returnTo }} replace />;
   }
 
   return <>{children}</>;
