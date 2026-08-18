@@ -79,6 +79,13 @@ class AuthService {
     return this.toAuthResult(await this.requireAccount(user.getId()));
   }
 
+  /** Sharing needs the recipient's id; the MVP never invites an unregistered address. */
+  public async findUserIdByEmail(email: string): Promise<string | null> {
+    const user = await this.authRepository.findByEmail(this.normalizeEmail(email));
+
+    return user?.getId() ?? null;
+  }
+
   public async getSession(userId: string): Promise<SessionResponse> {
     return this.toSession(await this.requireAccount(userId));
   }

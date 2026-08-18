@@ -1,4 +1,11 @@
-import { authContract, filesContract, foldersContract, healthContract } from '@data-room/contracts';
+import {
+  authContract,
+  filesContract,
+  foldersContract,
+  healthContract,
+  publicSharesContract,
+  sharesContract,
+} from '@data-room/contracts';
 import { createExpressEndpoints } from '@ts-rest/express';
 import express, { type Express } from 'express';
 
@@ -13,6 +20,7 @@ import { authRouter } from './modules/auth/auth.js';
 import { fileRouter } from './modules/files/files.js';
 import { folderRouter } from './modules/folders/folders.js';
 import { healthRouter } from './modules/health/health.js';
+import { publicShareRouter, shareRouter } from './modules/shares/shares.js';
 
 const app: Express = express();
 const JSON_BODY_LIMIT = '32kb';
@@ -41,6 +49,18 @@ createExpressEndpoints(foldersContract, folderRouter, app, {
 });
 
 createExpressEndpoints(healthContract, healthRouter, app, {
+  logInitialization: false,
+  requestValidationErrorHandler: validationErrorHandler,
+  responseValidation: config.isDevelopment,
+});
+
+createExpressEndpoints(publicSharesContract, publicShareRouter, app, {
+  logInitialization: false,
+  requestValidationErrorHandler: validationErrorHandler,
+  responseValidation: config.isDevelopment,
+});
+
+createExpressEndpoints(sharesContract, shareRouter, app, {
   logInitialization: false,
   requestValidationErrorHandler: validationErrorHandler,
   responseValidation: config.isDevelopment,
