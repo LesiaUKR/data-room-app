@@ -89,7 +89,8 @@ class FolderRepository {
           f.normalized_name AS "normalizedName",
           f.updated_at AS "updatedAt",
           NULL::text AS "sizeBytes",
-          NULL::text AS "contentType"
+          NULL::text AS "contentType",
+          NULL::int AS "versionNumber"
         FROM folder f
         WHERE f.data_room_id = ${input.dataRoomId}::uuid
           AND f.parent_folder_id = ${input.folderId}::uuid
@@ -108,7 +109,8 @@ class FolderRepository {
           fi.normalized_name AS "normalizedName",
           fi.updated_at AS "updatedAt",
           fv.size_bytes::text AS "sizeBytes",
-          fv.content_type AS "contentType"
+          fv.content_type AS "contentType",
+          fv.version_number AS "versionNumber"
         FROM file fi
         JOIN file_version fv ON fv.id = fi.current_version_id AND fv.status = 'READY'
         WHERE fi.data_room_id = ${input.dataRoomId}::uuid

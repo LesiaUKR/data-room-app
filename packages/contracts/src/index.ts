@@ -39,6 +39,7 @@ export {
 export {
   completedVersionSchema,
   createUploadIntentSchema,
+  fileDetailSchema,
   fileIdParamsSchema,
   fileSchema,
   filesContract,
@@ -51,6 +52,7 @@ export {
   type CompletedVersion,
   type CreateUploadIntent,
   type DataRoomFile,
+  type FileDetail,
   type MoveFile,
   type RenameFile,
   type SignedUrlResponse,

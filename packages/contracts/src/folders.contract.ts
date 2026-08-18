@@ -51,6 +51,8 @@ const contentsFileEntrySchema = z.object({
   name: z.string(),
   sizeBytes: byteCountSchema,
   contentType: z.string(),
+  // Of the current READY version, so a listing shows that a document was re-uploaded
+  versionNumber: z.number().int().positive(),
   updatedAt: z.string().datetime(),
 });
 

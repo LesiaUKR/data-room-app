@@ -33,6 +33,10 @@ const fileRouter = server.router(filesContract, {
     middleware: [authenticate],
     handler: ({ params, req }) => fileController.completeUpload({ actor: getActor(req), params }),
   },
+  getFile: {
+    middleware: [authenticate],
+    handler: ({ params, req }) => fileController.getFile({ actor: getActor(req), params }),
+  },
   getDownloadUrl: {
     middleware: [authenticate],
     handler: ({ params, req }) => fileController.getDownloadUrl({ actor: getActor(req), params }),

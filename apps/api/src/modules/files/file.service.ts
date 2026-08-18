@@ -4,6 +4,7 @@ import {
   Action,
   type CompletedVersion,
   type DataRoomFile,
+  type FileDetail,
   ErrorCode,
   FileVersionStatus,
   type SignedUrlResponse,
@@ -214,6 +215,25 @@ class FileService {
       contentType: stored.contentType,
       status: FileVersionStatus.READY,
       isCurrent,
+    };
+  }
+
+  public async getFile(request: FileRequest): Promise<FileDetail> {
+    const { file } = await this.authorizeFile(request.actor, request.fileId, Action.FILE_READ);
+
+    const version = await this.fileRepository.findCurrentVersion(request.fileId);
+    const sizeBytes = version?.getSizeBytes() ?? null;
+    const contentType = version?.getContentType() ?? null;
+
+    if (version === null || sizeBytes === null || contentType === null) {
+      throw this.noReadyVersionError();
+    }
+
+    return {
+      ...file.toObject(),
+      versionNumber: version.getVersionNumber(),
+      sizeBytes,
+      contentType,
     };
   }
 

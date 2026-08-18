@@ -54,12 +54,15 @@ const folderContentsRowsSchema = z.array(
       kindRank: z.literal(FOLDER_KIND_RANK),
       sizeBytes: z.null(),
       contentType: z.null(),
+      versionNumber: z.null(),
     }),
     z.object({
       ...contentsRowShape,
       kindRank: z.literal(FILE_KIND_RANK),
       sizeBytes: z.string().regex(/^\d+$/),
       contentType: z.string(),
+      // int4, so no ::text round trip is needed the way size_bytes and SUM() need one
+      versionNumber: z.number().int().positive(),
     }),
   ]),
 );
@@ -81,6 +84,7 @@ const toFolderContentsEntry = (row: FolderContentsRow): FolderContentsEntry =>
         updatedAt: row.updatedAt,
         sizeBytes: row.sizeBytes,
         contentType: row.contentType,
+        versionNumber: row.versionNumber,
       };
 
 // Exact aggregates cross as ::text; a count becomes a number only once it is a safe integer

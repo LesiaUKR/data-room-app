@@ -2,6 +2,7 @@ import {
   type CompletedVersion,
   type CreateUploadIntent,
   type DataRoomFile,
+  type FileDetail,
   type MoveFile,
   type RenameFile,
   type SignedUrlResponse,
@@ -51,6 +52,7 @@ type UploadIntentResult = { status: typeof HTTPCode.CREATED; body: UploadIntent 
 type CompleteResult = { status: typeof HTTPCode.OK; body: CompletedVersion };
 type DownloadUrlResult = { status: typeof HTTPCode.OK; body: SignedUrlResponse };
 type FileResult = { status: typeof HTTPCode.OK; body: DataRoomFile };
+type FileDetailResult = { status: typeof HTTPCode.OK; body: FileDetail };
 type RemoveResult = { status: typeof HTTPCode.NO_CONTENT; body: undefined };
 
 class FileController {
@@ -81,6 +83,12 @@ class FileController {
     });
 
     return { status: HTTPCode.OK, body: version };
+  }
+
+  public async getFile({ actor, params }: FileRequest): Promise<FileDetailResult> {
+    const file = await this.fileService.getFile({ actor, fileId: params.fileId });
+
+    return { status: HTTPCode.OK, body: file };
   }
 
   public async getDownloadUrl({ actor, params }: FileRequest): Promise<DownloadUrlResult> {

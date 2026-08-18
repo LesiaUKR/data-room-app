@@ -39,6 +39,13 @@ const signedUrlSchema = z.object({
   expiresAt: z.string().datetime(),
 });
 
+/** The logical document plus the facts about its current version a reader screen needs. */
+const fileDetailSchema = fileSchema.extend({
+  versionNumber: z.number().int().positive(),
+  sizeBytes: byteCountSchema,
+  contentType: z.string(),
+});
+
 const createUploadIntentSchema = z.object({
   folderId: z.string().uuid(),
   name: resourceNameSchema,
@@ -107,6 +114,22 @@ const filesContract = c.router({
       403: errorResponseSchema,
       404: errorResponseSchema,
       // INVALID_FILE_VERSION_STATE, UPLOAD_INCOMPLETE or UNSUPPORTED_FILE_TYPE
+      409: errorResponseSchema,
+      422: errorResponseSchema,
+      500: errorResponseSchema,
+    },
+  },
+  getFile: {
+    method: 'GET',
+    path: '/files/:fileId',
+    summary: 'Read one document with the metadata of its current READY version',
+    pathParams: fileIdParamsSchema,
+    responses: {
+      200: fileDetailSchema,
+      401: errorResponseSchema,
+      403: errorResponseSchema,
+      404: errorResponseSchema,
+      // UPLOAD_INCOMPLETE: the document exists but has no READY version to describe
       409: errorResponseSchema,
       422: errorResponseSchema,
       500: errorResponseSchema,
@@ -182,6 +205,7 @@ const filesContract = c.router({
 });
 
 type CompletedVersion = z.infer<typeof completedVersionSchema>;
+type FileDetail = z.infer<typeof fileDetailSchema>;
 type CreateUploadIntent = z.infer<typeof createUploadIntentSchema>;
 type DataRoomFile = z.infer<typeof fileSchema>;
 type MoveFile = z.infer<typeof moveFileSchema>;
@@ -192,6 +216,7 @@ type UploadIntent = z.infer<typeof uploadIntentSchema>;
 export {
   completedVersionSchema,
   createUploadIntentSchema,
+  fileDetailSchema,
   fileIdParamsSchema,
   fileSchema,
   filesContract,
@@ -204,6 +229,7 @@ export {
   type CompletedVersion,
   type CreateUploadIntent,
   type DataRoomFile,
+  type FileDetail,
   type MoveFile,
   type RenameFile,
   type SignedUrlResponse,
