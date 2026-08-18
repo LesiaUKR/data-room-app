@@ -1,48 +1,50 @@
-import { type ContentsFolderEntry } from '@data-room/contracts';
+import { type ContentsFileEntry } from '@data-room/contracts';
 import { Link } from '@tanstack/react-router';
-import { Folder, Pencil } from 'lucide-react';
+import { FileText, Pencil } from 'lucide-react';
 import { type ReactElement } from 'react';
 
 import { Button } from '@/components/ui/button';
 
-import { FolderNameEditor } from './FolderNameEditor';
+import { FileNameEditor } from './FileNameEditor';
 
-type FolderNameCellProperties = {
-  folder: ContentsFolderEntry;
-  parentFolderId: string;
+type FileNameCellProperties = {
+  file: ContentsFileEntry;
+  folderId: string;
   isEditing: boolean;
   onEditStart: () => void;
   onEditEnd: () => void;
 };
 
-const FolderNameCell = ({
-  folder,
-  parentFolderId,
+const FileNameCell = ({
+  file,
+  folderId,
   isEditing,
   onEditStart,
   onEditEnd,
-}: FolderNameCellProperties): ReactElement => (
+}: FileNameCellProperties): ReactElement => (
   <div className="relative flex min-w-0 items-center gap-3">
     <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-secondary">
-      <Folder className="size-4" aria-hidden="true" />
+      <FileText className="size-4" aria-hidden="true" />
     </span>
 
     {isEditing ? (
-      <FolderNameEditor
-        folderId={folder.id}
-        initialName={folder.name}
-        parentFolderId={parentFolderId}
+      <FileNameEditor
+        fileId={file.id}
+        initialName={file.name}
+        folderId={folderId}
         onDone={onEditEnd}
       />
     ) : (
       <>
         <Link
-          to="/"
-          search={{ folder: folder.id }}
+          to="/files/$fileId"
+          params={{ fileId: file.id }}
+          target="_blank"
+          rel="noreferrer"
           className="truncate rounded-sm text-left font-medium outline-none hover:text-primary focus-visible:ring-3 focus-visible:ring-ring/50"
           onClick={(event) => event.stopPropagation()}
         >
-          {folder.name}
+          {file.name}
         </Link>
 
         <Button
@@ -50,7 +52,7 @@ const FolderNameCell = ({
           variant="ghost"
           size="icon-sm"
           className="shrink-0 opacity-0 transition-opacity group-hover/row:opacity-100 group-focus-within/row:opacity-100 motion-reduce:transition-none"
-          aria-label={`Rename ${folder.name}`}
+          aria-label={`Rename ${file.name}`}
           onClick={(event) => {
             event.stopPropagation();
             onEditStart();
@@ -63,4 +65,4 @@ const FolderNameCell = ({
   </div>
 );
 
-export { FolderNameCell };
+export { FileNameCell };

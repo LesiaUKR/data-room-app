@@ -3,6 +3,8 @@ import { FolderOpen, FolderPlus, LoaderCircle, Lock, SearchX } from 'lucide-reac
 import { useState, type ReactElement, type ReactNode } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { FileDropzone, UploadButton, UploadQueuePanel } from '@/features/files/components';
+import { useUploadQueue } from '@/features/files/hooks';
 import { useDocumentTitle } from '@/hooks';
 
 import { ContentsTable, CreateFolderDialog, FolderBreadcrumbs } from '../components';
@@ -30,6 +32,7 @@ const FolderPage = ({ rootFolderId }: FolderPageProperties): ReactElement => {
   };
 
   const contents = useFolderContents(currentFolderId);
+  const uploads = useUploadQueue(currentFolderId);
 
   const breadcrumbs = useFolderBreadcrumbs(currentFolderId);
   const openFolderName =
@@ -55,6 +58,7 @@ const FolderPage = ({ rootFolderId }: FolderPageProperties): ReactElement => {
       rootFolderId={rootFolderId}
       currentFolderId={currentFolderId}
       onCreate={showsFailureScreen ? undefined : () => setIsCreateOpen(true)}
+      onFiles={showsFailureScreen ? undefined : uploads.enqueue}
     >
       {children}
 
@@ -62,6 +66,12 @@ const FolderPage = ({ rootFolderId }: FolderPageProperties): ReactElement => {
         open={isCreateOpen}
         onOpenChange={setIsCreateOpen}
         parentFolderId={currentFolderId}
+      />
+
+      <UploadQueuePanel
+        items={uploads.items}
+        onDismiss={uploads.dismiss}
+        onClearFinished={uploads.clearFinished}
       />
     </FolderShell>
   );
@@ -93,7 +103,7 @@ const FolderPage = ({ rootFolderId }: FolderPageProperties): ReactElement => {
     !hasEntries ? (
       <FolderState>
         <FolderOpen className="size-6 text-muted-foreground" aria-hidden="true" />
-        <p>This folder is empty.</p>
+        <p>This folder is empty. Drop PDF files here to upload them.</p>
         <Button type="button" variant="outline" onClick={() => setIsCreateOpen(true)}>
           New folder
         </Button>
@@ -104,6 +114,7 @@ const FolderPage = ({ rootFolderId }: FolderPageProperties): ReactElement => {
           key={currentFolderId}
           entries={entries}
           currentFolderId={currentFolderId}
+          rootFolderId={rootFolderId}
           onOpenFolder={openFolder}
         />
 
@@ -227,6 +238,7 @@ type FolderShellProperties = {
   currentFolderId: string;
   rootFolderId: string;
   onCreate?: () => void;
+  onFiles?: (files: File[]) => void;
 };
 
 const FolderShell = ({
@@ -234,25 +246,44 @@ const FolderShell = ({
   currentFolderId,
   rootFolderId,
   onCreate,
-}: FolderShellProperties): ReactElement => (
-  <section className="mx-auto w-full max-w-6xl space-y-5 px-4 py-8 sm:px-6">
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <FolderBreadcrumbs currentFolderId={currentFolderId} rootFolderId={rootFolderId} />
-
-      {onCreate === undefined ? null : (
-        <Button type="button" size="lg" onClick={onCreate}>
-          <FolderPlus aria-hidden="true" />
-          New folder
-        </Button>
-      )}
+  onFiles,
+}: FolderShellProperties): ReactElement => {
+  const card = (
+    <div className="flex min-h-0 flex-1 flex-col rounded-2xl border bg-card p-4 shadow-sm sm:p-6">
+      {children}
     </div>
+  );
 
-    <div className="rounded-2xl border bg-card p-4 shadow-sm sm:p-6">{children}</div>
-  </section>
-);
+  return (
+    <section className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col gap-5 px-4 py-6 sm:px-6">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
+        <FolderBreadcrumbs currentFolderId={currentFolderId} rootFolderId={rootFolderId} />
+
+        <div className="flex flex-wrap items-center gap-2">
+          {onFiles === undefined ? null : <UploadButton onFiles={onFiles} />}
+
+          {onCreate === undefined ? null : (
+            <Button type="button" size="lg" onClick={onCreate}>
+              <FolderPlus aria-hidden="true" />
+              New folder
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {onFiles === undefined ? (
+        card
+      ) : (
+        <FileDropzone onFiles={onFiles} className="flex min-h-0 flex-1 flex-col">
+          {card}
+        </FileDropzone>
+      )}
+    </section>
+  );
+};
 
 const FolderState = ({ children }: { children: ReactNode }): ReactElement => (
-  <div className="flex min-h-56 flex-col items-center justify-center gap-3 text-center text-sm text-muted-foreground">
+  <div className="flex min-h-56 flex-1 flex-col items-center justify-center gap-3 text-center text-sm text-muted-foreground">
     {children}
   </div>
 );

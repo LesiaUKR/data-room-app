@@ -120,6 +120,18 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+/*
+ * A slim, arrow-less scrollbar for panes that scroll inside the layout. Chrome ignores the
+ * ::-webkit-scrollbar pseudo-elements once scrollbar-width is set, so the standard properties
+ * are the whole implementation; scrollbar-gutter keeps the pane from reflowing when the bar
+ * appears.
+ */
+@utility scroll-slim {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+  scrollbar-gutter: stable;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

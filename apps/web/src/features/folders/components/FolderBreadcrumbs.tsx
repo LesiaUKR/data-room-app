@@ -21,7 +21,10 @@ const FolderBreadcrumbs = ({
   const items = breadcrumbs.data?.status === 200 ? breadcrumbs.data.body.items : [];
 
   return (
-    <nav aria-label="Folder breadcrumbs" className="flex items-center gap-1 overflow-x-auto">
+    <nav
+      aria-label="Folder breadcrumbs"
+      className="flex items-center gap-1 overflow-x-auto overflow-y-hidden"
+    >
       <Button asChild variant={isRoot ? 'secondary' : 'ghost'} size="sm">
         <Link to="/" search={{}}>
           My data room

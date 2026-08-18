@@ -9,6 +9,7 @@ import { type ReactElement } from 'react';
 import { z } from 'zod';
 
 import { RequireAnonymous, RequireSession } from '@/features/auth/components';
+import { FileViewerPage } from '@/features/files/pages/FileViewerPage';
 import { SignInPage } from '@/features/auth/pages/SignInPage';
 import { SignUpPage } from '@/features/auth/pages/SignUpPage';
 import { DataRoomPage } from '@/features/data-rooms/pages/DataRoomPage';
@@ -21,6 +22,16 @@ const ProtectedDataRoom = (): ReactElement => (
     <DataRoomPage />
   </RequireSession>
 );
+
+const ProtectedFileViewer = (): ReactElement => {
+  const { fileId } = fileRoute.useParams();
+
+  return (
+    <RequireSession>
+      <FileViewerPage fileId={fileId} />
+    </RequireSession>
+  );
+};
 
 const SignInScreen = (): ReactElement => {
   const navigate = useNavigate();
@@ -67,6 +78,13 @@ const dataRoomRoute = createRoute({
   },
 });
 
+// Its own URL, so a document opens in a new tab and survives a refresh or a pasted link
+const fileRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/files/$fileId',
+  component: ProtectedFileViewer,
+});
+
 const signInRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/sign-in',
@@ -86,7 +104,13 @@ const healthRoute = createRoute({
 });
 
 const router = createRouter({
-  routeTree: rootRoute.addChildren([dataRoomRoute, signInRoute, signUpRoute, healthRoute]),
+  routeTree: rootRoute.addChildren([
+    dataRoomRoute,
+    fileRoute,
+    signInRoute,
+    signUpRoute,
+    healthRoute,
+  ]),
 });
 
 declare module '@tanstack/react-router' {

@@ -12,8 +12,8 @@ const DataRoomPage = (): ReactElement => {
   }
 
   return (
-    <div className="min-h-screen">
-      <header className="flex items-center justify-between border-b px-6 py-4">
+    <div className="flex h-dvh flex-col">
+      <header className="flex shrink-0 items-center justify-between border-b px-6 py-4">
         <div>
           <h1 className="text-lg font-semibold">Data Room</h1>
           <p className="text-muted-foreground text-sm">{session.user.email}</p>

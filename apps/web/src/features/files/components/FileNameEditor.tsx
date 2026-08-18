@@ -1,32 +1,32 @@
-import { renameFolderSchema } from '@data-room/contracts';
+import { renameFileSchema } from '@data-room/contracts';
 import { useRef, useState, type KeyboardEvent, type ReactElement } from 'react';
 
 import { Input } from '@/components/ui/input';
 
-import { useFolderMutations } from '../hooks';
-import { toFolderErrors } from '../utils/to-folder-error';
+import { useFileMutations } from '../hooks';
+import { toFileErrorMessage } from '../utils/to-file-error';
 
-const FALLBACK_ERROR = 'Something went wrong. Please try again.';
 const INVALID_NAME_ERROR = 'This name is not allowed.';
 
-type FolderNameEditorProperties = {
-  folderId: string;
+type FileNameEditorProperties = {
+  fileId: string;
   initialName: string;
-  parentFolderId: string;
+  folderId: string;
   onDone: () => void;
 };
 
-const FolderNameEditor = ({
-  folderId,
+const FileNameEditor = ({
+  fileId,
   initialName,
-  parentFolderId,
+  folderId,
   onDone,
-}: FolderNameEditorProperties): ReactElement => {
-  const { rename } = useFolderMutations(parentFolderId);
+}: FileNameEditorProperties): ReactElement => {
+  const { rename } = useFileMutations(folderId);
 
   const [draft, setDraft] = useState(initialName);
   const [error, setError] = useState<string | null>(null);
 
+  // A useState flag would still read false inside the same synchronous blur handler
   const isCancelledRef = useRef(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -47,7 +47,7 @@ const FolderNameEditor = ({
       return;
     }
 
-    const parsed = renameFolderSchema.safeParse({ name: draft });
+    const parsed = renameFileSchema.safeParse({ name: draft });
 
     if (!parsed.success) {
       failEditing(parsed.error.issues[0]?.message ?? INVALID_NAME_ERROR);
@@ -62,14 +62,13 @@ const FolderNameEditor = ({
     }
 
     rename.mutate(
-      { params: { folderId }, body: parsed.data },
+      { params: { fileId }, body: parsed.data },
       {
         onSuccess: () => {
           onDone();
         },
         onError: (mutationError) => {
-          const [first] = toFolderErrors(mutationError);
-          failEditing(first?.message ?? FALLBACK_ERROR);
+          failEditing(toFileErrorMessage(mutationError));
         },
       },
     );
@@ -115,4 +114,4 @@ const FolderNameEditor = ({
   );
 };
 
-export { FolderNameEditor };
+export { FileNameEditor };

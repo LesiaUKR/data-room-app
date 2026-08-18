@@ -62,7 +62,7 @@ DialogContent.displayName = 'DialogContent';
 const DialogHeader = ({ className, ...props }: React.ComponentProps<'div'>) => (
   <div
     data-slot="dialog-header"
-    className={cn('flex flex-col gap-1.5 pr-6', className)}
+    className={cn('flex min-w-0 flex-col gap-1.5 pr-6', className)}
     {...props}
   />
 );
