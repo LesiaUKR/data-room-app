@@ -7,3 +7,4 @@ export { FileVersionStatus } from './file-version-status.enum.js';
 export { HealthStatus } from './health-status.enum.js';
 export { ShareRole } from './share-role.enum.js';
 export { ShareType } from './share-type.enum.js';
+export { UploadMode } from './upload-mode.enum.js';

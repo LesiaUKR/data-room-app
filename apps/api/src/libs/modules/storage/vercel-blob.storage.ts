@@ -45,6 +45,8 @@ class VercelBlobStorage implements StorageProvider {
       operation: 'put',
       pathname: request.objectKey,
       validUntil,
+      // Omitted, the store appends a suffix to the URL and the key stops addressing its object
+      addRandomSuffix: false,
     });
 
     return { url: presignedUrl, expiresAt: new Date(validUntil) };

@@ -9,6 +9,7 @@ export {
   HealthStatus,
   ShareRole,
   ShareType,
+  UploadMode,
 } from './enums/index.js';
 export {
   authContract,
@@ -36,16 +37,34 @@ export {
   type ErrorResponse,
 } from './error-response.schema.js';
 export {
+  completedVersionSchema,
+  createUploadIntentSchema,
+  fileIdParamsSchema,
+  fileSchema,
+  filesContract,
+  moveFileSchema,
+  renameFileSchema,
+  signedUrlSchema,
+  uploadIntentSchema,
+  uploadLimits,
+  versionIdParamsSchema,
+  type CompletedVersion,
+  type CreateUploadIntent,
+  type DataRoomFile,
+  type MoveFile,
+  type RenameFile,
+  type SignedUrlResponse,
+  type UploadIntent,
+} from './files.contract.js';
+export {
   breadcrumbSchema,
   breadcrumbsResponseSchema,
-  byteCountSchema,
   contentsEntrySchema,
   contentsPageSize,
   contentsQuerySchema,
   contentsResponseSchema,
   createFolderSchema,
   folderIdParamsSchema,
-  folderNameSchema,
   foldersContract,
   folderSchema,
   renameFolderSchema,
@@ -63,3 +82,8 @@ export {
   type SubtreeStats,
 } from './folders.contract.js';
 export { healthContract, healthResponseSchema, type HealthResponse } from './health.contract.js';
+export {
+  byteCountSchema,
+  RESOURCE_NAME_MAX_CHARACTERS,
+  resourceNameSchema,
+} from './primitives.schema.js';

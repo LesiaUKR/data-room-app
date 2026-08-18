@@ -90,6 +90,13 @@ const countFromTextSchema = z
   .refine((value) => Number.isSafeInteger(Number(value)))
   .transform(Number);
 
+const retiredVersionRowsSchema = z.array(
+  z.object({
+    id: z.string().uuid(),
+    objectKey: z.string().min(1),
+  }),
+);
+
 const folderSubtreeStatsRowsSchema = z.tuple([
   z.object({
     folderCount: countFromTextSchema,
@@ -104,6 +111,7 @@ export {
   folderSelect,
   folderSubtreeStatsRowsSchema,
   folderWithOwnerSelect,
+  retiredVersionRowsSchema,
   toFolderContentsEntry,
   toFolderEntity,
   toFolderWithOwner,

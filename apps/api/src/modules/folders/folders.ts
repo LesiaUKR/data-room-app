@@ -4,12 +4,15 @@ import { initServer } from '@ts-rest/express';
 import { authenticate, getActor } from '../../libs/middleware/index.js';
 import { accessPolicy } from '../../libs/modules/access/index.js';
 import { prisma } from '../../libs/modules/database/index.js';
+import { storage } from '../../libs/modules/storage/index.js';
 import { FolderController } from './folder.controller.js';
 import { FolderRepository } from './folder.repository.js';
 import { FolderService } from './folder.service.js';
 
 const folderRepository = new FolderRepository(prisma);
-const folderService = new FolderService({ accessPolicy, folderRepository });
+
+// Storage comes in because deleting a folder must retire the bytes under it, not just the rows
+const folderService = new FolderService({ accessPolicy, folderRepository, storage });
 const folderController = new FolderController({ folderService });
 
 const server = initServer();
@@ -45,4 +48,4 @@ const folderRouter = server.router(foldersContract, {
   },
 });
 
-export { folderRouter, folderService };
+export { folderRepository, folderRouter, folderService };

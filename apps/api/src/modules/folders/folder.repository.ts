@@ -1,5 +1,6 @@
 import { isUniqueViolation } from '../../libs/helpers/index.js';
 import { type DatabaseClient, type TransactionClient } from '../../libs/modules/database/index.js';
+import { type RetiredVersion } from '../../libs/types/index.js';
 import { type FolderEntity } from './folder.entity.js';
 import {
   folderAncestorRowsSchema,
@@ -7,6 +8,7 @@ import {
   folderSelect,
   folderSubtreeStatsRowsSchema,
   folderWithOwnerSelect,
+  retiredVersionRowsSchema,
   toFolderContentsEntry,
   toFolderEntity,
   toFolderWithOwner,
@@ -235,8 +237,31 @@ class FolderRepository {
     return row ? toFolderEntity(row) : null;
   }
 
-  public async softDeleteSubtree(folderId: string, tx: TransactionClient): Promise<void> {
-    // Files first: once the folders carry deleted_at, the second CTE would match nothing
+  /** Retires the bytes under the folder too, or deleted documents stay readable in the store. */
+  public async softDeleteSubtree(
+    folderId: string,
+    tx: TransactionClient,
+  ): Promise<RetiredVersion[]> {
+    // Versions first, while their files and folders are all still active and the CTE can see them
+    const rows = await tx.$queryRaw`
+      WITH RECURSIVE subtree AS (
+        SELECT id FROM folder WHERE id = ${folderId}::uuid AND deleted_at IS NULL
+        UNION ALL
+        SELECT f.id FROM folder f
+        JOIN subtree s ON f.parent_folder_id = s.id
+        WHERE f.deleted_at IS NULL
+      )
+      UPDATE file_version fv
+      SET status = 'DELETING', updated_at = now()
+      FROM file fi
+      WHERE fv.file_id = fi.id
+        AND fi.folder_id IN (SELECT id FROM subtree)
+        AND fi.deleted_at IS NULL
+        AND fv.status IN ('PENDING', 'READY', 'FAILED')
+      RETURNING fv.id, fv.object_key AS "objectKey"
+    `;
+
+    // Files next: once the folders carry deleted_at, the CTE below would match nothing
     await tx.$executeRaw`
       WITH RECURSIVE subtree AS (
         SELECT id FROM folder WHERE id = ${folderId}::uuid AND deleted_at IS NULL
@@ -246,7 +271,7 @@ class FolderRepository {
         WHERE f.deleted_at IS NULL
       )
       UPDATE file
-      SET deleted_at = now(), updated_at = now()
+      SET deleted_at = now(), current_version_id = NULL, updated_at = now()
       WHERE folder_id IN (SELECT id FROM subtree) AND deleted_at IS NULL
     `;
 
@@ -262,6 +287,16 @@ class FolderRepository {
       SET deleted_at = now(), updated_at = now()
       WHERE id IN (SELECT id FROM subtree) AND deleted_at IS NULL
     `;
+
+    return retiredVersionRowsSchema.parse(rows);
+  }
+
+  /** Tail of the subtree delete: called only for keys storage actually removed. */
+  public async markVersionsDeleted(versionIds: string[]): Promise<void> {
+    await this.database.fileVersion.updateMany({
+      where: { id: { in: versionIds }, status: 'DELETING' },
+      data: { status: 'DELETED' },
+    });
   }
 }
 

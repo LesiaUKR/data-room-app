@@ -24,6 +24,8 @@ const ErrorCode = {
   NAME_CONFLICT: 'NAME_CONFLICT',
   INVALID_FILE_VERSION_STATE: 'INVALID_FILE_VERSION_STATE',
   UPLOAD_INCOMPLETE: 'UPLOAD_INCOMPLETE',
+  // The stored object's real content type, taken from a HEAD check, is not accepted
+  UNSUPPORTED_FILE_TYPE: 'UNSUPPORTED_FILE_TYPE',
 
   // Rejected input
   MALFORMED_REQUEST_BODY: 'MALFORMED_REQUEST_BODY',

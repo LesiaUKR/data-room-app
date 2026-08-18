@@ -48,6 +48,54 @@
     {
       "key": "firstEntryId",
       "value": ""
+    },
+    {
+      "key": "filesFolderId",
+      "value": ""
+    },
+    {
+      "key": "archiveFolderId",
+      "value": ""
+    },
+    {
+      "key": "fileId",
+      "value": ""
+    },
+    {
+      "key": "secondFileId",
+      "value": ""
+    },
+    {
+      "key": "versionId",
+      "value": ""
+    },
+    {
+      "key": "secondVersionId",
+      "value": ""
+    },
+    {
+      "key": "balanceVersionId",
+      "value": ""
+    },
+    {
+      "key": "failedVersionId",
+      "value": ""
+    },
+    {
+      "key": "pendingVersionId",
+      "value": ""
+    },
+    {
+      "key": "uploadUrl",
+      "value": ""
+    },
+    {
+      "key": "pdfBody",
+      "value": ""
+    },
+    {
+      "key": "downloadUrl",
+      "value": ""
     }
   ],
   "item": [
@@ -83,7 +131,7 @@
                   "",
                   "const body = pm.response.json();",
                   "",
-                  "pm.test('database is reachable', () => pm.expect(body.database).to.eql('UP'));",
+                  "pm.test('database is reachable', () => pm.expect(body.database).to.eql('up'));",
                   "pm.test('reports its uptime', () => pm.expect(body.uptimeSeconds).to.be.a('number'));"
                 ]
               }
@@ -1439,7 +1487,1271 @@
       ]
     },
     {
-      "name": "07 — Sign-out",
+      "name": "07 — Files",
+      "description": "Upload never passes through the API: the PUT here goes straight to the blob store on another host, so the session cookie is not sent with it. Run in order — later requests reuse ids captured earlier.",
+      "item": [
+        {
+          "name": "POST /folders — create Documents → 201",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// A minimal but real PDF: the API trusts the stored content type, not this text",
+                  "const pdf = ['%PDF-1.4',",
+                  "  '1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj',",
+                  "  '2 0 obj<</Type/Pages/Kids[]/Count 0>>endobj',",
+                  "  'trailer<</Root 1 0 R>>',",
+                  "  '%%EOF'].join('\\n');",
+                  "",
+                  "pm.collectionVariables.set('pdfBody', pdf);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('filesFolderId', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"parentFolderId\": \"{{rootFolderId}}\",\n  \"name\": \"Documents\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/folders",
+              "host": ["{{baseUrl}}"],
+              "path": ["folders"]
+            }
+          }
+        },
+        {
+          "name": "POST /upload-intents — folderId not a uuid → 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 Unprocessable Entity', () => pm.response.to.have.status(422));",
+                  "pm.test('validation failures never become 400', () => pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"folderId\": \"not-a-uuid\",\n  \"name\": \"Contract.pdf\",\n  \"contentType\": \"application/pdf\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/upload-intents",
+              "host": ["{{baseUrl}}"],
+              "path": ["upload-intents"]
+            }
+          }
+        },
+        {
+          "name": "POST /upload-intents — non-PDF content type → 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 Unprocessable Entity', () => pm.response.to.have.status(422));",
+                  "pm.test('rejected before any URL is signed', () => pm.expect(pm.response.text()).to.not.include('upload'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"folderId\": \"{{filesFolderId}}\",\n  \"name\": \"Notes.txt\",\n  \"contentType\": \"text/plain\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/upload-intents",
+              "host": ["{{baseUrl}}"],
+              "path": ["upload-intents"]
+            }
+          }
+        },
+        {
+          "name": "POST /upload-intents — emoji name → 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 Unprocessable Entity', () => pm.response.to.have.status(422));",
+                  "pm.test('files share the folder naming rule', () => pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"folderId\": \"{{filesFolderId}}\",\n  \"name\": \"Contract 🎉.pdf\",\n  \"contentType\": \"application/pdf\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/upload-intents",
+              "host": ["{{baseUrl}}"],
+              "path": ["upload-intents"]
+            }
+          }
+        },
+        {
+          "name": "POST /upload-intents — unknown folder → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('a foreign folder is indistinguishable from a missing one', () => pm.expect(pm.response.json().error.code).to.eql('FOLDER_NOT_FOUND'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"folderId\": \"00000000-0000-4000-8000-000000000000\",\n  \"name\": \"Contract.pdf\",\n  \"contentType\": \"application/pdf\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/upload-intents",
+              "host": ["{{baseUrl}}"],
+              "path": ["upload-intents"]
+            }
+          }
+        },
+        {
+          "name": "POST /upload-intents — Contract.pdf → 201 NEW_FILE",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('an unused name starts a new document', () => pm.expect(body.mode).to.eql('NEW_FILE'));",
+                  "pm.test('numbering starts at one', () => pm.expect(body.versionNumber).to.eql(1));",
+                  "pm.test('the browser gets a signed URL, never a token', () => pm.expect(body.upload.url).to.be.a('string'));",
+                  "pm.test('the URL carries its own expiry', () => pm.expect(Date.parse(body.upload.expiresAt)).to.be.greaterThan(Date.now()));",
+                  "pm.test('the object key never leaves the API', () => pm.expect(pm.response.text()).to.not.include('objectKey'));",
+                  "pm.collectionVariables.set('fileId', body.fileId);",
+                  "pm.collectionVariables.set('versionId', body.versionId);",
+                  "pm.collectionVariables.set('uploadUrl', body.upload.url);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"folderId\": \"{{filesFolderId}}\",\n  \"name\": \"Contract.pdf\",\n  \"contentType\": \"application/pdf\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/upload-intents",
+              "host": ["{{baseUrl}}"],
+              "path": ["upload-intents"]
+            }
+          }
+        },
+        {
+          "name": "PUT signed URL — bytes go straight to storage",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('storage accepted the upload', () => pm.expect(pm.response.code).to.be.below(300));",
+                  "// Nothing here touches our API: this is the 4.5 MB function body limit being bypassed"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/pdf"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{pdfBody}}"
+            },
+            "url": "{{uploadUrl}}"
+          }
+        },
+        {
+          "name": "POST /file-versions/:id/complete → 200 READY",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('only a HEAD check can produce READY', () => pm.expect(body.status).to.eql('READY'));",
+                  "pm.test('size came from storage, not from us', () => pm.expect(Number(body.sizeBytes)).to.be.greaterThan(0));",
+                  "pm.test('bytes cross as a decimal string, because BigInt breaks JSON', () => pm.expect(body.sizeBytes).to.be.a('string'));",
+                  "pm.test('content type came from storage', () => pm.expect(body.contentType).to.include('application/pdf'));",
+                  "pm.test('the first version becomes current', () => pm.expect(body.isCurrent).to.eql(true));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/file-versions/{{versionId}}/complete",
+              "host": ["{{baseUrl}}"],
+              "path": ["file-versions", "{{versionId}}", "complete"]
+            }
+          }
+        },
+        {
+          "name": "POST /file-versions/:id/complete — repeated → 200 (idempotent)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('the same version answers, nothing new is created', () => pm.expect(body.versionId).to.eql(pm.collectionVariables.get('versionId')));",
+                  "pm.test('still version one', () => pm.expect(body.versionNumber).to.eql(1));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/file-versions/{{versionId}}/complete",
+              "host": ["{{baseUrl}}"],
+              "path": ["file-versions", "{{versionId}}", "complete"]
+            }
+          }
+        },
+        {
+          "name": "GET /folders/:id/contents — the file appears → 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const file = body.items.find((item) => item.kind === 'file');",
+                  "pm.test('a READY version makes the row visible', () => pm.expect(file).to.not.eql(undefined));",
+                  "pm.test('the listing carries size and type', () => pm.expect(Number(file.sizeBytes)).to.be.greaterThan(0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/folders/{{filesFolderId}}/contents",
+              "host": ["{{baseUrl}}"],
+              "path": ["folders", "{{filesFolderId}}", "contents"]
+            }
+          }
+        },
+        {
+          "name": "POST /upload-intents — same name → 201 NEW_VERSION",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('a taken name versions the document instead of failing', () => pm.expect(body.mode).to.eql('NEW_VERSION'));",
+                  "pm.test('same logical document', () => pm.expect(body.fileId).to.eql(pm.collectionVariables.get('fileId')));",
+                  "pm.test('next number allocated', () => pm.expect(body.versionNumber).to.eql(2));",
+                  "pm.test('the stored name wins over the uploaded casing', () => pm.expect(body.name).to.eql('Contract.pdf'));",
+                  "pm.collectionVariables.set('secondVersionId', body.versionId);",
+                  "pm.collectionVariables.set('uploadUrl', body.upload.url);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"folderId\": \"{{filesFolderId}}\",\n  \"name\": \"CONTRACT.pdf\",\n  \"contentType\": \"application/pdf\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/upload-intents",
+              "host": ["{{baseUrl}}"],
+              "path": ["upload-intents"]
+            }
+          }
+        },
+        {
+          "name": "GET /files/:id/download-url — v1 still readable while v2 is PENDING",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('a pending replacement never hides the current version', () => pm.expect(body.url).to.be.a('string'));",
+                  "pm.test('short-lived by design', () => pm.expect(Date.parse(body.expiresAt) - Date.now()).to.be.below(10 * 60 * 1000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/files/{{fileId}}/download-url",
+              "host": ["{{baseUrl}}"],
+              "path": ["files", "{{fileId}}", "download-url"]
+            }
+          }
+        },
+        {
+          "name": "PUT signed URL — v2 bytes",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('storage accepted the upload', () => pm.expect(pm.response.code).to.be.below(300));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/pdf"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{pdfBody}}"
+            },
+            "url": "{{uploadUrl}}"
+          }
+        },
+        {
+          "name": "POST /file-versions/:id/complete — v2 → 200, promoted",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('version two is READY', () => pm.expect(body.versionNumber).to.eql(2));",
+                  "pm.test('the newer version takes the current pointer', () => pm.expect(body.isCurrent).to.eql(true));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/file-versions/{{secondVersionId}}/complete",
+              "host": ["{{baseUrl}}"],
+              "path": ["file-versions", "{{secondVersionId}}", "complete"]
+            }
+          }
+        },
+        {
+          "name": "POST /file-versions/:id/complete — v1 again → 200, no rollback",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('an older version can never roll the pointer back', () => pm.expect(body.isCurrent).to.eql(false));",
+                  "pm.test('it stays READY and readable in history', () => pm.expect(body.status).to.eql('READY'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/file-versions/{{versionId}}/complete",
+              "host": ["{{baseUrl}}"],
+              "path": ["file-versions", "{{versionId}}", "complete"]
+            }
+          }
+        },
+        {
+          "name": "POST /upload-intents — Balance.pdf → 201",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('secondFileId', body.fileId);",
+                  "pm.collectionVariables.set('balanceVersionId', body.versionId);",
+                  "pm.collectionVariables.set('uploadUrl', body.upload.url);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"folderId\": \"{{filesFolderId}}\",\n  \"name\": \"Balance.pdf\",\n  \"contentType\": \"application/pdf\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/upload-intents",
+              "host": ["{{baseUrl}}"],
+              "path": ["upload-intents"]
+            }
+          }
+        },
+        {
+          "name": "PUT signed URL — Balance.pdf bytes",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('storage accepted the upload', () => pm.expect(pm.response.code).to.be.below(300));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/pdf"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{pdfBody}}"
+            },
+            "url": "{{uploadUrl}}"
+          }
+        },
+        {
+          "name": "POST /file-versions/:id/complete — Balance.pdf → 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/file-versions/{{balanceVersionId}}/complete",
+              "host": ["{{baseUrl}}"],
+              "path": ["file-versions", "{{balanceVersionId}}", "complete"]
+            }
+          }
+        },
+        {
+          "name": "PATCH /files/:id — rename onto a taken name → 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 Conflict', () => pm.response.to.have.status(409));",
+                  "pm.test('merging two documents silently would be data loss', () => pm.expect(pm.response.json().error.code).to.eql('NAME_CONFLICT'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Contract.pdf\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/files/{{secondFileId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["files", "{{secondFileId}}"]
+            }
+          }
+        },
+        {
+          "name": "PATCH /files/:id — case-only rename → 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('a file may take its own name back in another case', () => pm.expect(pm.response.json().name).to.eql('BALANCE.pdf'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"BALANCE.pdf\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/files/{{secondFileId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["files", "{{secondFileId}}"]
+            }
+          }
+        },
+        {
+          "name": "POST /folders — create Archive → 201",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('archiveFolderId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"parentFolderId\": \"{{rootFolderId}}\",\n  \"name\": \"Archive\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/folders",
+              "host": ["{{baseUrl}}"],
+              "path": ["folders"]
+            }
+          }
+        },
+        {
+          "name": "PATCH /files/:id/move → 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('the document now lives in Archive', () => pm.expect(pm.response.json().folderId).to.eql(pm.collectionVariables.get('archiveFolderId')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"folderId\": \"{{archiveFolderId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/files/{{fileId}}/move",
+              "host": ["{{baseUrl}}"],
+              "path": ["files", "{{fileId}}", "move"]
+            }
+          }
+        },
+        {
+          "name": "PATCH /files/:id/move — same folder → 200 (no-op)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('moving where it already is is not a name conflict', () => pm.expect(pm.response.json().folderId).to.eql(pm.collectionVariables.get('archiveFolderId')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"folderId\": \"{{archiveFolderId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/files/{{fileId}}/move",
+              "host": ["{{baseUrl}}"],
+              "path": ["files", "{{fileId}}", "move"]
+            }
+          }
+        },
+        {
+          "name": "PATCH /files/:id/move — unknown folder → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('an unreachable target never leaks its existence', () => pm.expect(pm.response.json().error.code).to.eql('FOLDER_NOT_FOUND'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"folderId\": \"00000000-0000-4000-8000-000000000000\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/files/{{fileId}}/move",
+              "host": ["{{baseUrl}}"],
+              "path": ["files", "{{fileId}}", "move"]
+            }
+          }
+        },
+        {
+          "name": "GET /files/:id/download-url — after the move → 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "// The object key is built from ids, so moving the document never touched stored bytes",
+                  "pm.test('still downloadable from its new folder', () => pm.expect(pm.response.json().url).to.be.a('string'));",
+                  "pm.collectionVariables.set('downloadUrl', pm.response.json().url);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/files/{{fileId}}/download-url",
+              "host": ["{{baseUrl}}"],
+              "path": ["files", "{{fileId}}", "download-url"]
+            }
+          }
+        },
+        {
+          "name": "GET signed download URL — it actually serves the bytes",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "// Minting a URL is not proof it resolves: the key must still address the stored object",
+                  "pm.test('the store returns the PDF', () => pm.expect(pm.response.headers.get('content-type')).to.include('application/pdf'));",
+                  "pm.test('bytes come back', () => pm.expect(pm.response.responseSize).to.be.above(0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{downloadUrl}}"
+          }
+        },
+        {
+          "name": "POST /upload-intents — Report.pdf → 201 (about to be lied to)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('failedVersionId', body.versionId);",
+                  "pm.collectionVariables.set('uploadUrl', body.upload.url);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"folderId\": \"{{filesFolderId}}\",\n  \"name\": \"Report.pdf\",\n  \"contentType\": \"application/pdf\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/upload-intents",
+              "host": ["{{baseUrl}}"],
+              "path": ["upload-intents"]
+            }
+          }
+        },
+        {
+          "name": "PUT signed URL — text/plain despite the PDF signature",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// The signed PUT is not a type check: the platform has been observed accepting this.",
+                  "// A non-2xx here would mean it now enforces the type, which is stricter and also fine.",
+                  "pm.test('storage answered without a server error', () => pm.expect(pm.response.code).to.be.below(500));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{pdfBody}}"
+            },
+            "url": "{{uploadUrl}}"
+          }
+        },
+        {
+          "name": "POST /file-versions/:id/complete — not a PDF → 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 Conflict', () => pm.response.to.have.status(409));",
+                  "const body = pm.response.json();",
+                  "// UNSUPPORTED_FILE_TYPE: the PUT was accepted and our HEAD check caught the real type.",
+                  "// UPLOAD_INCOMPLETE: the platform refused the PUT itself, so no object exists.",
+                  "pm.test('a non-PDF never reaches READY', () => pm.expect(['UNSUPPORTED_FILE_TYPE', 'UPLOAD_INCOMPLETE']).to.include(body.error.code));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/file-versions/{{failedVersionId}}/complete",
+              "host": ["{{baseUrl}}"],
+              "path": ["file-versions", "{{failedVersionId}}", "complete"]
+            }
+          }
+        },
+        {
+          "name": "POST /file-versions/:id/complete — the failed one again → 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 Conflict', () => pm.response.to.have.status(409));",
+                  "pm.test('a FAILED version cannot be revived by a repeat', () => pm.expect(pm.response.json().error.code).to.eql('INVALID_FILE_VERSION_STATE'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/file-versions/{{failedVersionId}}/complete",
+              "host": ["{{baseUrl}}"],
+              "path": ["file-versions", "{{failedVersionId}}", "complete"]
+            }
+          }
+        },
+        {
+          "name": "POST /upload-intents — Never.pdf, bytes never sent → 201",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('pendingVersionId', pm.response.json().versionId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"folderId\": \"{{filesFolderId}}\",\n  \"name\": \"Never.pdf\",\n  \"contentType\": \"application/pdf\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/upload-intents",
+              "host": ["{{baseUrl}}"],
+              "path": ["upload-intents"]
+            }
+          }
+        },
+        {
+          "name": "POST /file-versions/:id/complete — nothing was uploaded → 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 Conflict', () => pm.response.to.have.status(409));",
+                  "pm.test('the HEAD check is what decides, not the client', () => pm.expect(pm.response.json().error.code).to.eql('UPLOAD_INCOMPLETE'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/file-versions/{{pendingVersionId}}/complete",
+              "host": ["{{baseUrl}}"],
+              "path": ["file-versions", "{{pendingVersionId}}", "complete"]
+            }
+          }
+        },
+        {
+          "name": "POST /file-versions/:id/complete — unknown version → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('coded so the client can branch', () => pm.expect(pm.response.json().error.code).to.eql('FILE_VERSION_NOT_FOUND'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/file-versions/00000000-0000-4000-8000-000000000000/complete",
+              "host": ["{{baseUrl}}"],
+              "path": ["file-versions", "00000000-0000-4000-8000-000000000000", "complete"]
+            }
+          }
+        },
+        {
+          "name": "DELETE /files/:id → 204",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));",
+                  "pm.test('nothing is returned', () => pm.expect(pm.response.text()).to.eql(''));",
+                  "// Blob cleanup is awaited before this response: on Vercel nothing survives it"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/files/{{fileId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["files", "{{fileId}}"]
+            }
+          }
+        },
+        {
+          "name": "GET /files/:id/download-url — deleted → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('a soft-deleted document is simply not there', () => pm.expect(pm.response.json().error.code).to.eql('FILE_NOT_FOUND'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/files/{{fileId}}/download-url",
+              "host": ["{{baseUrl}}"],
+              "path": ["files", "{{fileId}}", "download-url"]
+            }
+          }
+        },
+        {
+          "name": "DELETE /files/:id — repeated → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "// Repeating the delete changes nothing; the second call reports the document as gone",
+                  "pm.test('no second cleanup is triggered', () => pm.expect(pm.response.json().error.code).to.eql('FILE_NOT_FOUND'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/files/{{fileId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["files", "{{fileId}}"]
+            }
+          }
+        },
+        {
+          "name": "GET /folders/:id/contents — the deleted document is gone → 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Archive is empty again', () => pm.expect(pm.response.json().items).to.have.lengthOf(0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/folders/{{archiveFolderId}}/contents",
+              "host": ["{{baseUrl}}"],
+              "path": ["folders", "{{archiveFolderId}}", "contents"]
+            }
+          }
+        },
+        {
+          "name": "DELETE /folders/:id — a folder that still holds a document → 204",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));",
+                  "// Documents still holds a READY file plus a FAILED and a PENDING version:",
+                  "// all three have to be retired and their blobs swept, not just the folder rows"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/folders/{{filesFolderId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["folders", "{{filesFolderId}}"]
+            }
+          }
+        },
+        {
+          "name": "GET /files/:id/download-url — a file inside the deleted folder → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('the document went with its folder', () => pm.expect(pm.response.json().error.code).to.eql('FILE_NOT_FOUND'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/files/{{secondFileId}}/download-url",
+              "host": ["{{baseUrl}}"],
+              "path": ["files", "{{secondFileId}}", "download-url"]
+            }
+          }
+        },
+        {
+          "name": "GET /folders/:id/contents — the deleted folder → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('a viewer of that folder gets a calm not-found, never a 500', () => pm.expect(pm.response.json().error.code).to.eql('FOLDER_NOT_FOUND'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/folders/{{filesFolderId}}/contents",
+              "host": ["{{baseUrl}}"],
+              "path": ["folders", "{{filesFolderId}}", "contents"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 — Sign-out",
       "item": [
         {
           "name": "POST /auth/sign-out → 204",

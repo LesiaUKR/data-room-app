@@ -7,10 +7,11 @@ import {
   type SubtreeStats,
 } from '@data-room/contracts';
 
-import { normalizeName } from '../../libs/helpers/index.js';
+import { normalizeName, sweepRetiredVersions } from '../../libs/helpers/index.js';
 import { type AccessPolicy, ResourceKind } from '../../libs/modules/access/index.js';
 import { lockDataRoom, transaction } from '../../libs/modules/database/index.js';
 import { HTTPCode } from '../../libs/modules/http/index.js';
+import { type StorageProvider } from '../../libs/modules/storage/index.js';
 import { type Actor } from '../../libs/types/index.js';
 import { type FolderRepository } from './folder.repository.js';
 import { FolderErrorMessage, FolderLimit } from './libs/enums/index.js';
@@ -21,6 +22,7 @@ import { type FolderWithOwner } from './libs/types/index.js';
 type FolderServiceParameters = {
   accessPolicy: AccessPolicy;
   folderRepository: FolderRepository;
+  storage: StorageProvider;
 };
 
 type ReadRequest = {
@@ -48,9 +50,12 @@ class FolderService {
 
   private readonly folderRepository: FolderRepository;
 
-  public constructor({ accessPolicy, folderRepository }: FolderServiceParameters) {
+  private readonly storage: StorageProvider;
+
+  public constructor({ accessPolicy, folderRepository, storage }: FolderServiceParameters) {
     this.accessPolicy = accessPolicy;
     this.folderRepository = folderRepository;
+    this.storage = storage;
   }
 
   public async getContents(request: ListRequest): Promise<ContentsResponse> {
@@ -186,9 +191,16 @@ class FolderService {
       throw this.rootImmutableError();
     }
 
-    await transaction(async (tx) => {
+    const retired = await transaction(async (tx) => {
       await lockDataRoom(folder.getDataRoomId(), tx);
-      await this.folderRepository.softDeleteSubtree(request.folderId, tx);
+
+      return this.folderRepository.softDeleteSubtree(request.folderId, tx);
+    });
+
+    await sweepRetiredVersions({
+      retired,
+      storage: this.storage,
+      markDeleted: (versionIds) => this.folderRepository.markVersionsDeleted(versionIds),
     });
   }
 
