@@ -96,6 +96,62 @@
     {
       "key": "downloadUrl",
       "value": ""
+    },
+    {
+      "key": "shareFolderId",
+      "value": ""
+    },
+    {
+      "key": "nestedShareFolderId",
+      "value": ""
+    },
+    {
+      "key": "legalFolderId",
+      "value": ""
+    },
+    {
+      "key": "sharedFileId",
+      "value": ""
+    },
+    {
+      "key": "sharedVersionId",
+      "value": ""
+    },
+    {
+      "key": "publicToken",
+      "value": ""
+    },
+    {
+      "key": "publicShareId",
+      "value": ""
+    },
+    {
+      "key": "secondPublicShareId",
+      "value": ""
+    },
+    {
+      "key": "userShareId",
+      "value": ""
+    },
+    {
+      "key": "recipientEmail",
+      "value": ""
+    },
+    {
+      "key": "recipientPassword",
+      "value": ""
+    },
+    {
+      "key": "recipientUserId",
+      "value": ""
+    },
+    {
+      "key": "recipientRootFolderId",
+      "value": ""
+    },
+    {
+      "key": "foreignShareId",
+      "value": ""
     }
   ],
   "item": [
@@ -2751,7 +2807,1898 @@
       ]
     },
     {
-      "name": "08 — Sign-out",
+      "name": "08 — Sharing",
+      "description": "Public links and permissioned grants. Runs while the owner from folder 03 is still signed in, creates a second real account for the recipient, and switches sessions explicitly — the cookie jar holds one at a time. Every negative case is sent straight at the API, never inferred from a hidden UI control.",
+      "item": [
+        {
+          "name": "POST /folders — create Diligence (share root) → 201",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// A second real account: a permissioned share only targets a registered user",
+                  "pm.collectionVariables.set('recipientEmail', 'qa+recipient' + Date.now() + '@example.com');",
+                  "const entropy = pm.variables.replaceIn('{{$guid}}').replace(/-/g, '');",
+                  "pm.collectionVariables.set('recipientPassword', 'Bb2!' + entropy.slice(0, 20));",
+                  "",
+                  "",
+                  "// A minimal but real PDF: the API trusts the stored content type, not this text",
+                  "const pdf = ['%PDF-1.4',",
+                  "  '1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj',",
+                  "  '2 0 obj<</Type/Pages/Kids[]/Count 0>>endobj',",
+                  "  'trailer<</Root 1 0 R>>',",
+                  "  '%%EOF'].join('\\n');",
+                  "",
+                  "pm.collectionVariables.set('pdfBody', pdf);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('shareFolderId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"parentFolderId\": \"{{rootFolderId}}\",\n  \"name\": \"Diligence\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/folders",
+              "host": ["{{baseUrl}}"],
+              "path": ["folders"]
+            }
+          }
+        },
+        {
+          "name": "POST /folders — create Diligence/Contracts → 201",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('nestedShareFolderId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"parentFolderId\": \"{{shareFolderId}}\",\n  \"name\": \"Contracts\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/folders",
+              "host": ["{{baseUrl}}"],
+              "path": ["folders"]
+            }
+          }
+        },
+        {
+          "name": "POST /folders — create Restricted (must stay invisible) → 201",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('legalFolderId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"parentFolderId\": \"{{rootFolderId}}\",\n  \"name\": \"Restricted\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/folders",
+              "host": ["{{baseUrl}}"],
+              "path": ["folders"]
+            }
+          }
+        },
+        {
+          "name": "POST /upload-intents — Contract.pdf into Diligence → 201",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('sharedFileId', body.fileId);",
+                  "pm.collectionVariables.set('sharedVersionId', body.versionId);",
+                  "pm.collectionVariables.set('uploadUrl', body.upload.url);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"folderId\": \"{{shareFolderId}}\",\n  \"name\": \"Contract.pdf\",\n  \"contentType\": \"application/pdf\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/upload-intents",
+              "host": ["{{baseUrl}}"],
+              "path": ["upload-intents"]
+            }
+          }
+        },
+        {
+          "name": "PUT signed URL — bytes go straight to storage",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('storage accepted the upload', () => pm.expect(pm.response.code).to.be.below(300));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/pdf"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{pdfBody}}"
+            },
+            "url": "{{uploadUrl}}"
+          }
+        },
+        {
+          "name": "POST /file-versions/:id/complete → 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('version is READY', () => pm.expect(pm.response.json().status).to.eql('READY'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/file-versions/{{sharedVersionId}}/complete",
+              "host": ["{{baseUrl}}"],
+              "path": ["file-versions", "{{sharedVersionId}}", "complete"]
+            }
+          }
+        },
+        {
+          "name": "POST /shares - public link on Diligence -> 201",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('plaintext token is returned exactly once', () => pm.expect(body.token).to.be.a('string'));",
+                  "pm.test('the hash never leaves the database', () => pm.expect(pm.response.text()).to.not.include('tokenHash'));",
+                  "pm.test('role is VIEWER', () => pm.expect(body.share.role).to.eql('VIEWER'));",
+                  "pm.test('target names the folder', () => pm.expect(body.share.target.name).to.eql('Diligence'));",
+                  "pm.collectionVariables.set('publicToken', body.token);",
+                  "pm.collectionVariables.set('publicShareId', body.share.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"PUBLIC_LINK\",\n  \"target\": {\n    \"kind\": \"FOLDER\",\n    \"id\": \"{{shareFolderId}}\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/shares",
+              "host": ["{{baseUrl}}"],
+              "path": ["shares"]
+            }
+          }
+        },
+        {
+          "name": "POST /shares - a second public link is a second grant -> 201",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "// Links are deliberately not deduplicated: each recipient gets one that revokes on its own",
+                  "pm.test('a fresh token, not the first one', () => pm.expect(body.token).to.not.eql(pm.collectionVariables.get('publicToken')));",
+                  "pm.test('a different grant id', () => pm.expect(body.share.id).to.not.eql(pm.collectionVariables.get('publicShareId')));",
+                  "pm.collectionVariables.set('secondPublicShareId', body.share.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"PUBLIC_LINK\",\n  \"target\": {\n    \"kind\": \"FOLDER\",\n    \"id\": \"{{shareFolderId}}\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/shares",
+              "host": ["{{baseUrl}}"],
+              "path": ["shares"]
+            }
+          }
+        },
+        {
+          "name": "GET /shares - active grants on Diligence -> 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('both links are listed', () => pm.expect(body.items.length).to.eql(2));",
+                  "pm.test('no token or hash in a listing', () => {",
+                  "  pm.expect(pm.response.text()).to.not.include('tokenHash');",
+                  "  body.items.forEach((share) => pm.expect(share).to.not.have.property('token'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/shares?targetKind=FOLDER&targetId={{shareFolderId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["shares"],
+              "query": [
+                {
+                  "key": "targetKind",
+                  "value": "FOLDER"
+                },
+                {
+                  "key": "targetId",
+                  "value": "{{shareFolderId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /shares - sharing with yourself -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 Unprocessable Entity', () => pm.response.to.have.status(422));",
+                  "pm.test('code is SELF_SHARE_NOT_ALLOWED', () => pm.expect(pm.response.json().error.code).to.eql('SELF_SHARE_NOT_ALLOWED'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"USER\",\n  \"target\": {\n    \"kind\": \"FOLDER\",\n    \"id\": \"{{shareFolderId}}\"\n  },\n  \"recipientEmail\": \"{{email}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/shares",
+              "host": ["{{baseUrl}}"],
+              "path": ["shares"]
+            }
+          }
+        },
+        {
+          "name": "POST /shares - unknown recipient -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 Unprocessable Entity', () => pm.response.to.have.status(422));",
+                  "pm.test('code is RECIPIENT_NOT_FOUND', () => pm.expect(pm.response.json().error.code).to.eql('RECIPIENT_NOT_FOUND'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"USER\",\n  \"target\": {\n    \"kind\": \"FOLDER\",\n    \"id\": \"{{shareFolderId}}\"\n  },\n  \"recipientEmail\": \"nobody-here@example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/shares",
+              "host": ["{{baseUrl}}"],
+              "path": ["shares"]
+            }
+          }
+        },
+        {
+          "name": "POST /shares - target that does not exist -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('code is FOLDER_NOT_FOUND', () => pm.expect(pm.response.json().error.code).to.eql('FOLDER_NOT_FOUND'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"PUBLIC_LINK\",\n  \"target\": {\n    \"kind\": \"FOLDER\",\n    \"id\": \"00000000-0000-4000-8000-000000000000\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/shares",
+              "host": ["{{baseUrl}}"],
+              "path": ["shares"]
+            }
+          }
+        },
+        {
+          "name": "GET /public/shares/:token - resolve signed out -> 200",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// A public link must work with no session at all, so the jar is emptied first",
+                  "try {",
+                  "  pm.cookies.jar().clear(pm.variables.get('baseUrl'), () => {});",
+                  "} catch (error) {",
+                  "  console.log('Cookie jar not clearable - allowlist the domain under Cookies:', error.message);",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('points at the shared folder', () => pm.expect(body.target.kind).to.eql('FOLDER'));",
+                  "pm.test('names it', () => pm.expect(body.target.name).to.eql('Diligence'));",
+                  "pm.test('read-only', () => pm.expect(body.role).to.eql('VIEWER'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/public/shares/{{publicToken}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["public", "shares", "{{publicToken}}"]
+            }
+          }
+        },
+        {
+          "name": "GET /public/.../folders/:shareRoot/contents -> 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const names = pm.response.json().items.map((entry) => entry.name);",
+                  "pm.test('the subtree is visible', () => pm.expect(names).to.include('Contracts'));",
+                  "pm.test('the document is visible', () => pm.expect(names).to.include('Contract.pdf'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/public/shares/{{publicToken}}/folders/{{shareFolderId}}/contents",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "public",
+                "shares",
+                "{{publicToken}}",
+                "folders",
+                "{{shareFolderId}}",
+                "contents"
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /public/.../folders/:nested/contents - inside the subtree -> 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "// An ancestor grant reaches every folder below it, not just the share root"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/public/shares/{{publicToken}}/folders/{{nestedShareFolderId}}/contents",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "public",
+                "shares",
+                "{{publicToken}}",
+                "folders",
+                "{{nestedShareFolderId}}",
+                "contents"
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /public/.../folders/:sibling/contents - guessing Restricted -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404, never 403', () => pm.response.to.have.status(404));",
+                  "// 403 would confirm the folder exists; invisible and absent must answer identically",
+                  "pm.test('code is FOLDER_NOT_FOUND', () => pm.expect(pm.response.json().error.code).to.eql('FOLDER_NOT_FOUND'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/public/shares/{{publicToken}}/folders/{{legalFolderId}}/contents",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "public",
+                "shares",
+                "{{publicToken}}",
+                "folders",
+                "{{legalFolderId}}",
+                "contents"
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /public/.../folders/:nested/breadcrumbs - clamped to the share root -> 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const items = pm.response.json().items;",
+                  "const names = items.map((crumb) => crumb.name);",
+                  "pm.test('starts at the shared folder', () => pm.expect(names[0]).to.eql('Diligence'));",
+                  "pm.test('ends at the folder being viewed', () => pm.expect(names[names.length - 1]).to.eql('Contracts'));",
+                  "// Anything above the share root would leak the structure of the room",
+                  "pm.test('nothing above the share root', () => pm.expect(items.length).to.eql(2));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/public/shares/{{publicToken}}/folders/{{nestedShareFolderId}}/breadcrumbs",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "public",
+                "shares",
+                "{{publicToken}}",
+                "folders",
+                "{{nestedShareFolderId}}",
+                "breadcrumbs"
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /public/.../files/:fileId -> 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('named document', () => pm.expect(pm.response.json().name).to.eql('Contract.pdf'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/public/shares/{{publicToken}}/files/{{sharedFileId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["public", "shares", "{{publicToken}}", "files", "{{sharedFileId}}"]
+            }
+          }
+        },
+        {
+          "name": "GET /public/.../files/:fileId/download-url -> 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const ttlMs = new Date(body.expiresAt) - Date.now();",
+                  "// A short TTL is the whole mitigation for the revocation window; document it, do not hide it",
+                  "pm.test('TTL stays inside five minutes', () => pm.expect(ttlMs).to.be.below(5 * 60 * 1000));",
+                  "pm.test('TTL is still in the future', () => pm.expect(ttlMs).to.be.above(0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/public/shares/{{publicToken}}/files/{{sharedFileId}}/download-url",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "public",
+                "shares",
+                "{{publicToken}}",
+                "files",
+                "{{sharedFileId}}",
+                "download-url"
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /public/shares/:token - unknown token -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('code is SHARE_NOT_FOUND', () => pm.expect(pm.response.json().error.code).to.eql('SHARE_NOT_FOUND'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/public/shares/deadbeefdeadbeefdeadbeefdeadbeef",
+              "host": ["{{baseUrl}}"],
+              "path": ["public", "shares", "deadbeefdeadbeefdeadbeefdeadbeef"]
+            }
+          }
+        },
+        {
+          "name": "POST /public/.../upload-intents - no write route exists -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "// Writes are refused structurally: the public router has no such route to reach"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"folderId\": \"{{shareFolderId}}\",\n  \"name\": \"Sneaky.pdf\",\n  \"contentType\": \"application/pdf\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/public/shares/{{publicToken}}/upload-intents",
+              "host": ["{{baseUrl}}"],
+              "path": ["public", "shares", "{{publicToken}}", "upload-intents"]
+            }
+          }
+        },
+        {
+          "name": "GET /folders/:id/contents - protected route with no session -> 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));",
+                  "// 401 here, 404 for an authenticated stranger: the two failures answer different questions"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/folders/{{shareFolderId}}/contents",
+              "host": ["{{baseUrl}}"],
+              "path": ["folders", "{{shareFolderId}}", "contents"]
+            }
+          }
+        },
+        {
+          "name": "POST /auth/sign-up - the recipient account -> 201",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('recipientUserId', pm.response.json().user.id);",
+                  "// The recipient owns a room of their own - that is a real foreign target to probe with",
+                  "pm.collectionVariables.set('recipientRootFolderId', pm.response.json().dataRoom.rootFolderId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{recipientEmail}}\",\n  \"password\": \"{{recipientPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/sign-up",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "sign-up"]
+            }
+          }
+        },
+        {
+          "name": "GET /folders/:shared/contents - stranger with no grant -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404, never 403', () => pm.response.to.have.status(404));",
+                  "// An authenticated stranger must not be able to tell the folder apart from a missing one"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/folders/{{shareFolderId}}/contents",
+              "host": ["{{baseUrl}}"],
+              "path": ["folders", "{{shareFolderId}}", "contents"]
+            }
+          }
+        },
+        {
+          "name": "POST /shares - the recipient shares inside their own room -> 201",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "// Owning a room means owning its root, so this succeeds and gives us a foreign grant id",
+                  "pm.collectionVariables.set('foreignShareId', pm.response.json().share.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"PUBLIC_LINK\",\n  \"target\": {\n    \"kind\": \"FOLDER\",\n    \"id\": \"{{recipientRootFolderId}}\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/shares",
+              "host": ["{{baseUrl}}"],
+              "path": ["shares"]
+            }
+          }
+        },
+        {
+          "name": "POST /auth/sign-out - switch actor",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('204 No Content', () => pm.response.to.have.status(204));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/sign-out",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "sign-out"]
+            }
+          }
+        },
+        {
+          "name": "POST /auth/sign-in - back as the owner -> 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/sign-in",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "sign-in"]
+            }
+          }
+        },
+        {
+          "name": "DELETE /shares/:foreignShareId - a real grant of another owner -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('code is SHARE_NOT_FOUND', () => pm.expect(pm.response.json().error.code).to.eql('SHARE_NOT_FOUND'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/shares/{{foreignShareId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["shares", "{{foreignShareId}}"]
+            }
+          }
+        },
+        {
+          "name": "POST /shares - foreign folder with my own email -> 404, not 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "// A 422 here would confirm the folder exists: authorization has to answer first",
+                  "pm.test('code is FOLDER_NOT_FOUND', () => pm.expect(pm.response.json().error.code).to.eql('FOLDER_NOT_FOUND'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"USER\",\n  \"target\": {\n    \"kind\": \"FOLDER\",\n    \"id\": \"{{recipientRootFolderId}}\"\n  },\n  \"recipientEmail\": \"{{email}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/shares",
+              "host": ["{{baseUrl}}"],
+              "path": ["shares"]
+            }
+          }
+        },
+        {
+          "name": "POST /shares - foreign folder with an unregistered email -> the same 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "// Registered and unregistered addresses must be indistinguishable to an outsider",
+                  "pm.test('code is FOLDER_NOT_FOUND', () => pm.expect(pm.response.json().error.code).to.eql('FOLDER_NOT_FOUND'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"USER\",\n  \"target\": {\n    \"kind\": \"FOLDER\",\n    \"id\": \"{{recipientRootFolderId}}\"\n  },\n  \"recipientEmail\": \"nobody-here@example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/shares",
+              "host": ["{{baseUrl}}"],
+              "path": ["shares"]
+            }
+          }
+        },
+        {
+          "name": "POST /shares - permissioned grant to the recipient -> 201",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('a user grant carries no token', () => pm.expect(body.token).to.eql(null));",
+                  "pm.test('the recipient is named back', () => pm.expect(body.share.recipientEmail).to.eql(pm.collectionVariables.get('recipientEmail')));",
+                  "pm.test('role is VIEWER', () => pm.expect(body.share.role).to.eql('VIEWER'));",
+                  "pm.collectionVariables.set('userShareId', body.share.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"USER\",\n  \"target\": {\n    \"kind\": \"FOLDER\",\n    \"id\": \"{{shareFolderId}}\"\n  },\n  \"recipientEmail\": \"{{recipientEmail}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/shares",
+              "host": ["{{baseUrl}}"],
+              "path": ["shares"]
+            }
+          }
+        },
+        {
+          "name": "POST /shares - re-sharing to the same user -> 200, one row",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK, not 201 and not an error', () => pm.response.to.have.status(200));",
+                  "// Giving access twice is not a failure; the partial unique index keeps it one row",
+                  "pm.test('the same grant comes back', () => pm.expect(pm.response.json().share.id).to.eql(pm.collectionVariables.get('userShareId')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"USER\",\n  \"target\": {\n    \"kind\": \"FOLDER\",\n    \"id\": \"{{shareFolderId}}\"\n  },\n  \"recipientEmail\": \"{{recipientEmail}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/shares",
+              "host": ["{{baseUrl}}"],
+              "path": ["shares"]
+            }
+          }
+        },
+        {
+          "name": "POST /auth/sign-out - switch actor",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('204 No Content', () => pm.response.to.have.status(204));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/sign-out",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "sign-out"]
+            }
+          }
+        },
+        {
+          "name": "POST /auth/sign-in - as the recipient -> 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{recipientEmail}}\",\n  \"password\": \"{{recipientPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/sign-in",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "sign-in"]
+            }
+          }
+        },
+        {
+          "name": "GET /folders/:shared/contents - as the grantee -> 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const names = pm.response.json().items.map((entry) => entry.name);",
+                  "pm.test('the shared subtree is visible', () => pm.expect(names).to.include('Contracts'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/folders/{{shareFolderId}}/contents",
+              "host": ["{{baseUrl}}"],
+              "path": ["folders", "{{shareFolderId}}", "contents"]
+            }
+          }
+        },
+        {
+          "name": "GET /folders/:nested/contents - an ancestor grant reaches down -> 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/folders/{{nestedShareFolderId}}/contents",
+              "host": ["{{baseUrl}}"],
+              "path": ["folders", "{{nestedShareFolderId}}", "contents"]
+            }
+          }
+        },
+        {
+          "name": "GET /folders/:sibling/contents - Restricted stays invisible -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('code is FOLDER_NOT_FOUND', () => pm.expect(pm.response.json().error.code).to.eql('FOLDER_NOT_FOUND'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/folders/{{legalFolderId}}/contents",
+              "host": ["{{baseUrl}}"],
+              "path": ["folders", "{{legalFolderId}}", "contents"]
+            }
+          }
+        },
+        {
+          "name": "GET /folders/:nested/breadcrumbs - clamped for the grantee too -> 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const names = pm.response.json().items.map((crumb) => crumb.name);",
+                  "pm.test('starts at the shared folder', () => pm.expect(names[0]).to.eql('Diligence'));",
+                  "pm.test('nothing above the share root', () => pm.expect(names.length).to.eql(2));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/folders/{{nestedShareFolderId}}/breadcrumbs",
+              "host": ["{{baseUrl}}"],
+              "path": ["folders", "{{nestedShareFolderId}}", "breadcrumbs"]
+            }
+          }
+        },
+        {
+          "name": "PATCH /folders/:shared - viewer renames -> 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 Forbidden', () => pm.response.to.have.status(403));",
+                  "// A role resolved but the action is not in its row of the matrix - that is 403, not 404",
+                  "pm.test('code is FORBIDDEN', () => pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Hijacked\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/folders/{{shareFolderId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["folders", "{{shareFolderId}}"]
+            }
+          }
+        },
+        {
+          "name": "POST /folders - viewer creates inside the share -> 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 Forbidden', () => pm.response.to.have.status(403));",
+                  "// A role resolved but the action is not in its row of the matrix - that is 403, not 404",
+                  "pm.test('code is FORBIDDEN', () => pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"parentFolderId\": \"{{shareFolderId}}\",\n  \"name\": \"Injected\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/folders",
+              "host": ["{{baseUrl}}"],
+              "path": ["folders"]
+            }
+          }
+        },
+        {
+          "name": "POST /upload-intents - viewer uploads -> 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 Forbidden', () => pm.response.to.have.status(403));",
+                  "// A role resolved but the action is not in its row of the matrix - that is 403, not 404",
+                  "pm.test('code is FORBIDDEN', () => pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"folderId\": \"{{shareFolderId}}\",\n  \"name\": \"Sneaky.pdf\",\n  \"contentType\": \"application/pdf\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/upload-intents",
+              "host": ["{{baseUrl}}"],
+              "path": ["upload-intents"]
+            }
+          }
+        },
+        {
+          "name": "DELETE /folders/:shared - viewer deletes -> 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 Forbidden', () => pm.response.to.have.status(403));",
+                  "// A role resolved but the action is not in its row of the matrix - that is 403, not 404",
+                  "pm.test('code is FORBIDDEN', () => pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/folders/{{shareFolderId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["folders", "{{shareFolderId}}"]
+            }
+          }
+        },
+        {
+          "name": "POST /shares - viewer re-shares what was shared with them -> 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 Forbidden', () => pm.response.to.have.status(403));",
+                  "// A role resolved but the action is not in its row of the matrix - that is 403, not 404",
+                  "pm.test('code is FORBIDDEN', () => pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"PUBLIC_LINK\",\n  \"target\": {\n    \"kind\": \"FOLDER\",\n    \"id\": \"{{shareFolderId}}\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/shares",
+              "host": ["{{baseUrl}}"],
+              "path": ["shares"]
+            }
+          }
+        },
+        {
+          "name": "POST /shares - viewer makes a permissioned share -> 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 Forbidden', () => pm.response.to.have.status(403));",
+                  "// Refused by the action matrix - never a 422 about the recipient",
+                  "pm.test('code is FORBIDDEN', () => pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"USER\",\n  \"target\": {\n    \"kind\": \"FOLDER\",\n    \"id\": \"{{shareFolderId}}\"\n  },\n  \"recipientEmail\": \"nobody-here@example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/shares",
+              "host": ["{{baseUrl}}"],
+              "path": ["shares"]
+            }
+          }
+        },
+        {
+          "name": "DELETE /shares/:id - viewer revokes the owner's grant -> 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 Forbidden', () => pm.response.to.have.status(403));",
+                  "// A role resolved but the action is not in its row of the matrix - that is 403, not 404",
+                  "pm.test('code is FORBIDDEN', () => pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/shares/{{userShareId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["shares", "{{userShareId}}"]
+            }
+          }
+        },
+        {
+          "name": "POST /auth/sign-out - switch actor",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('204 No Content', () => pm.response.to.have.status(204));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/sign-out",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "sign-out"]
+            }
+          }
+        },
+        {
+          "name": "POST /auth/sign-in - back as the owner -> 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/sign-in",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "sign-in"]
+            }
+          }
+        },
+        {
+          "name": "DELETE /shares/:publicShareId - revoke the link -> 204",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('204 No Content', () => pm.response.to.have.status(204));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/shares/{{publicShareId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["shares", "{{publicShareId}}"]
+            }
+          }
+        },
+        {
+          "name": "DELETE /shares/:publicShareId - revoking twice is safe -> 204",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));",
+                  "// Idempotent by design: the second call updates nothing and still succeeds"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/shares/{{publicShareId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["shares", "{{publicShareId}}"]
+            }
+          }
+        },
+        {
+          "name": "DELETE /shares/:id - revoke a grant of another room -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('code is SHARE_NOT_FOUND', () => pm.expect(pm.response.json().error.code).to.eql('SHARE_NOT_FOUND'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/shares/00000000-0000-4000-8000-000000000000",
+              "host": ["{{baseUrl}}"],
+              "path": ["shares", "00000000-0000-4000-8000-000000000000"]
+            }
+          }
+        },
+        {
+          "name": "DELETE /shares/:userShareId - revoke the permissioned grant -> 204",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('204 No Content', () => pm.response.to.have.status(204));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/shares/{{userShareId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["shares", "{{userShareId}}"]
+            }
+          }
+        },
+        {
+          "name": "POST /shares - re-share after revoke -> 201",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "// A revoked row leaves the unique slot, which is why revoke does not lock the pair forever",
+                  "pm.test('a new grant, not the revoked one', () => pm.expect(pm.response.json().share.id).to.not.eql(pm.collectionVariables.get('userShareId')));",
+                  "pm.collectionVariables.set('userShareId', pm.response.json().share.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"USER\",\n  \"target\": {\n    \"kind\": \"FOLDER\",\n    \"id\": \"{{shareFolderId}}\"\n  },\n  \"recipientEmail\": \"{{recipientEmail}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/shares",
+              "host": ["{{baseUrl}}"],
+              "path": ["shares"]
+            }
+          }
+        },
+        {
+          "name": "DELETE /shares/:userShareId - revoke it again for the next run -> 204",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('204 No Content', () => pm.response.to.have.status(204));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/shares/{{userShareId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["shares", "{{userShareId}}"]
+            }
+          }
+        },
+        {
+          "name": "GET /public/shares/:token - after revoke, signed out -> 404",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "try {",
+                  "  pm.cookies.jar().clear(pm.variables.get('baseUrl'), () => {});",
+                  "} catch (error) {",
+                  "  console.log('Cookie jar not clearable - allowlist the domain under Cookies:', error.message);",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "// New authorization stops immediately; only an already-issued signed URL lives out its TTL",
+                  "pm.test('code is SHARE_NOT_FOUND', () => pm.expect(pm.response.json().error.code).to.eql('SHARE_NOT_FOUND'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/public/shares/{{publicToken}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["public", "shares", "{{publicToken}}"]
+            }
+          }
+        },
+        {
+          "name": "POST /auth/sign-in - as the recipient -> 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{recipientEmail}}\",\n  \"password\": \"{{recipientPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/sign-in",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "sign-in"]
+            }
+          }
+        },
+        {
+          "name": "GET /folders/:shared/contents - grantee after revoke -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('code is FOLDER_NOT_FOUND', () => pm.expect(pm.response.json().error.code).to.eql('FOLDER_NOT_FOUND'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/folders/{{shareFolderId}}/contents",
+              "host": ["{{baseUrl}}"],
+              "path": ["folders", "{{shareFolderId}}", "contents"]
+            }
+          }
+        },
+        {
+          "name": "POST /auth/sign-out - switch actor",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('204 No Content', () => pm.response.to.have.status(204));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/sign-out",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "sign-out"]
+            }
+          }
+        },
+        {
+          "name": "POST /auth/sign-in - back as the owner -> 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/sign-in",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "sign-in"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 — Sign-out",
       "item": [
         {
           "name": "POST /auth/sign-out → 204",
