@@ -22,4 +22,4 @@ const toInternalPath = (value: unknown): string => {
   return AUTH_PATHS.includes(pathnameOf(value)) ? DEFAULT_RETURN_TO : value;
 };
 
-export { toInternalPath };
+export { DEFAULT_RETURN_TO, toInternalPath };
