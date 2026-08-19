@@ -33,7 +33,7 @@ const EMAIL_FIELD_ID = 'share-recipient-email';
 const ALREADY_HAS_ACCESS_MESSAGE = 'This user already has access.';
 
 const TOKEN_ONCE_MESSAGE =
-  'For security, this URL was shown only when the link was created. Revoke it and create a new link if you no longer have it.';
+  'For security, the address will be shown only once, right after you create the link. If you lose it, revoke the link and create a new one.';
 
 const ACCESS_NOTE: Record<ResourceKind, string> = {
   [ResourceKind.DATA_ROOM]:
@@ -194,7 +194,8 @@ const ShareDialog = ({
         </DialogHeader>
 
         {/* The top edge stays fixed while async content grows naturally downwards */}
-        <div className="scroll-slim -mx-1 flex min-h-0 flex-col gap-6 overflow-y-auto px-1 [scrollbar-gutter:stable]">
+        {/* sm:min-h-72 reserves the height so the box does not resize once the grants load */}
+        <div className="scroll-slim -mx-1 flex min-h-0 flex-col gap-6 overflow-y-auto px-1 sm:min-h-72">
           <section className="flex flex-col gap-3">
             <h3 className="text-sm font-medium">Public link</h3>
 
@@ -213,7 +214,7 @@ const ShareDialog = ({
                 </div>
 
                 <p className="text-xs text-muted-foreground">
-                  Copy it now — for security this address is shown only once.
+                  Copy it now — you will not see it again.
                 </p>
 
                 <div className="flex justify-end">
@@ -235,75 +236,87 @@ const ShareDialog = ({
               </p>
             )}
 
-            {shares.isPending ? (
-              <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                <LoaderCircle
-                  className="size-4 animate-spin motion-reduce:animate-none"
-                  aria-hidden="true"
-                />
-                Loading public links…
-              </p>
-            ) : failure === null ? (
-              <>
-                {listedPublicLinks.map((share) => (
+            <p className="text-xs text-muted-foreground">{TOKEN_ONCE_MESSAGE}</p>
+
+            {/* Loading, empty and filled all use the same bordered row, so nothing resizes */}
+            <div className="flex flex-col gap-3">
+              {shares.isPending ? (
+                <>
+                  <p role="status" className="sr-only">
+                    Loading public links…
+                  </p>
+
                   <div
-                    key={share.id}
+                    aria-hidden="true"
                     className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2"
                   >
-                    <div className="min-w-0">
-                      <p className="text-sm">Public link</p>
-                      <p className="text-xs text-muted-foreground">
-                        Created {formatCreatedAt(share.createdAt)}
-                      </p>
-                    </div>
+                    <div className="h-3.5 w-44 animate-pulse rounded bg-muted motion-reduce:animate-none" />
 
-                    <RevokeControls
-                      isConfirming={revokeConfirmationId === share.id}
-                      isRevoking={revokingId === share.id}
-                      revokeInProgress={revokingId !== null}
-                      onRequest={() => setRevokeConfirmationId(share.id)}
-                      onCancel={() => setRevokeConfirmationId(null)}
-                      onConfirm={() => revokeGrant(share.id, 'public')}
-                    />
+                    <div className="h-7 w-28 animate-pulse rounded-lg bg-muted motion-reduce:animate-none" />
                   </div>
-                ))}
+                </>
+              ) : failure === null ? (
+                <>
+                  {listedPublicLinks.map((share) => (
+                    <div
+                      key={share.id}
+                      className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2"
+                    >
+                      <p className="min-w-0 truncate text-sm">
+                        Public link · created {formatCreatedAt(share.createdAt)}
+                      </p>
 
-                {listedPublicLinks.length > 0 ? (
-                  <p className="text-xs text-muted-foreground">{TOKEN_ONCE_MESSAGE}</p>
-                ) : null}
+                      <RevokeControls
+                        isConfirming={revokeConfirmationId === share.id}
+                        isRevoking={revokingId === share.id}
+                        revokeInProgress={revokingId !== null}
+                        onRequest={() => setRevokeConfirmationId(share.id)}
+                        onCancel={() => setRevokeConfirmationId(null)}
+                        onConfirm={() => revokeGrant(share.id, 'public')}
+                      />
+                    </div>
+                  ))}
 
-                {publicLinks.length === 0 && createdLink === null ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={create.isPending}
-                    onClick={createPublicLink}
-                  >
-                    {create.isPending ? 'Creating…' : 'Create public link'}
-                  </Button>
-                ) : null}
-              </>
-            ) : (
-              <div role="alert" className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-sm text-destructive">
-                  {failure === 'forbidden' || failure === 'missing'
-                    ? 'You do not have access to the sharing settings of this item.'
-                    : 'We could not load public links.'}
-                </span>
+                  {publicLinks.length === 0 && createdLink === null ? (
+                    <div className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
+                      <p className="min-w-0 truncate text-sm text-muted-foreground">
+                        No public link yet
+                      </p>
 
-                {failure === 'forbidden' || failure === 'missing' ? null : (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={shares.isRefetching}
-                    onClick={() => void shares.refetch()}
-                  >
-                    {shares.isRefetching ? 'Retrying…' : 'Try again'}
-                  </Button>
-                )}
-              </div>
-            )}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={create.isPending}
+                        onClick={createPublicLink}
+                      >
+                        {create.isPending ? 'Creating…' : 'Create link'}
+                      </Button>
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                <div role="alert" className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-sm text-destructive">
+                    {failure === 'forbidden' || failure === 'missing'
+                      ? 'You do not have access to the sharing settings of this item.'
+                      : 'We could not load public links.'}
+                  </span>
+
+                  {failure === 'forbidden' || failure === 'missing' ? null : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={shares.isRefetching}
+                      onClick={() => void shares.refetch()}
+                    >
+                      {shares.isRefetching ? 'Retrying…' : 'Try again'}
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
           </section>
 
           <section className="flex flex-col gap-3">
