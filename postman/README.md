@@ -42,7 +42,9 @@ The collection is numbered because several assertions depend on session state:
 | `04 — Conflicts`           | Needs the account to already exist                                     |
 | `05 — Sign-in`             | Re-establishes the session and compares response times                 |
 | `06 — Folders`             | Needs a live session; builds and tears down its own tree               |
-| `07 — Sign-out`            | Ends the session; leaves the jar clean for the next run                |
+| `07 — Files`               | Uploads through a signed URL, then completes and versions the document |
+| `08 — Sharing`             | Public links, user grants, viewer limits, and revocation               |
+| `09 — Sign-out`            | Ends the session; leaves the jar clean for the next run                |
 
 **Sign-out stays last.** Every feature folder needs the session that `03`/`05` established, so
 each new one is inserted _before_ it — not appended after.
@@ -74,7 +76,10 @@ By design — these need other tools, and they are covered in
 
 ## Extending it
 
-One folder per feature, numbered in run order, and always inserted **before** `Sign-out`.
-Issue 06 adds `07 — Files` and Issue 07 adds `08 — Sharing`, each pushing sign-out one number
-further down. Keep the same shape: assert the status code, the error `code`, and the one
-invariant the request exists to prove — not the whole response body.
+One folder per feature, numbered in run order, and always inserted **before** `Sign-out`. That is
+how `07 — Files` and `08 — Sharing` were added, each pushing sign-out one number further down.
+
+Keep the same shape: assert the status code, the error `code`, and the one invariant the request
+exists to prove — not the whole response body.
+
+The collection currently holds **138 requests and 292 assertions**.
