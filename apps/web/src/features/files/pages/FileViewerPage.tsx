@@ -28,12 +28,7 @@ const FileViewerPage = ({ fileId, origin }: FileViewerPageProperties): ReactElem
   const file = useFile(fileId);
   const download = useFileDownloadUrl(fileId);
 
-  /**
-   * An imperative call, deliberately not `download.refetch()`. A refetch writes to the observed
-   * query, which would restart the preview's cross-origin fetch of the whole document, and on a
-   * network failure it resolves with the previous cached response — handing back the very URL that
-   * has already expired. This touches no cache and rejects when the request fails.
-   */
+  // Not `refetch()`: that restarts the preview fetch and on failure returns the expired URL
   const requestFreshUrl = async (): Promise<string | null> => {
     try {
       const response = await tsr.files.getDownloadUrl.query({ params: { fileId } });

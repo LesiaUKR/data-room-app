@@ -18,10 +18,7 @@ type UploadToBlobOptions = {
   onProgress: (progress: number) => void;
 };
 
-/**
- * `fetch` reports no upload progress, so the one signed PUT in the app uses XMLHttpRequest.
- * The Content-Type sent here becomes the stored object's type, which completion re-checks.
- */
+// `fetch` reports no upload progress, so the signed PUT uses XMLHttpRequest
 const uploadToBlob = ({ url, file, contentType, onProgress }: UploadToBlobOptions): Promise<void> =>
   new Promise((resolve, reject) => {
     const request = new XMLHttpRequest();

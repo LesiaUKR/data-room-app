@@ -24,14 +24,7 @@ const startDownload = (url: string): void => {
   anchor.remove();
 };
 
-/**
- * Two paths. When the viewer holds the bytes, the anchor points at the local blob: URL and
- * `download` names the file — the attribute is honoured only for same-origin and blob: URLs.
- *
- * When the preview failed there are no bytes, so the signed URL is opened directly. It is minted
- * on the click rather than reused: it lives 120 seconds, and nothing refetches it while the page
- * sits open, so a held URL would be dead by the time anyone pressed the button.
- */
+// `download` works only for same-origin and blob: URLs; the signed fallback is minted on click
 const DownloadFileButton = ({
   fileName,
   objectUrl,

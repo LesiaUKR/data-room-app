@@ -18,10 +18,7 @@ type PublicFolderViewProperties = {
   folderId: string;
 };
 
-/**
- * The shared subtree as an anonymous reader sees it. Mounted only once the token has resolved,
- * because the root folder is what decides which contents query runs.
- */
+// Mounted only after the token resolves: the root folder decides which contents query runs
 const PublicFolderView = ({
   token,
   rootFolderId,

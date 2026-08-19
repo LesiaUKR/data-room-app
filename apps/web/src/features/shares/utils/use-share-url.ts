@@ -7,11 +7,7 @@ type ShareUrlBuilders = {
   recipientUrl: (target: ShareTargetView) => string;
 };
 
-/**
- * Absolute URLs an owner can paste into a message. The path comes from the router, so renaming a
- * route breaks the build here instead of handing someone a dead link; only the origin is read
- * from the browser, because the same build serves localhost, previews and production.
- */
+// Path from the router so a rename breaks the build; origin from the browser
 const useShareUrl = (): ShareUrlBuilders => {
   const router = useRouter();
 

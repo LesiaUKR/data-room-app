@@ -23,10 +23,7 @@ const toRootFolderId = (target: ShareTargetView): string | null => {
   return target.kind === ResourceKind.FOLDER ? target.id : null;
 };
 
-/**
- * Entry point of a public link. It resolves the token first, because what the link points at
- * decides which screen the reader gets - and the contents query cannot run before that is known.
- */
+// Resolves the token first: what it points at decides which screen renders
 const PublicSharePage = ({ token, folderId }: PublicSharePageProperties): ReactElement => {
   const share = usePublicShare(token);
 

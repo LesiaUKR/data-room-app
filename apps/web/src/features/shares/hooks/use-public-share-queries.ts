@@ -3,10 +3,7 @@ import { contentsPageSize } from '@data-room/contracts';
 import { DOWNLOAD_URL_STALE_MS } from '@/features/files/hooks';
 import { tsr } from '@/lib/api-client';
 
-/**
- * The token is part of the identity. Two different public grants can point at the same folder,
- * and each resolves to its own clamped view, so they must never share one cache entry.
- */
+// Two grants on one folder resolve to different clamped views, so the token belongs in the key
 const publicShareQueryKey = (token: string, parts: readonly string[]) =>
   ['public-shares', token, ...parts] as const;
 

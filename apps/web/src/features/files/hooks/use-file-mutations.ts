@@ -9,10 +9,7 @@ const fileQueryKey = (fileId: string, resource: 'detail' | 'download-url') =>
 // Storage signs download URLs for 120 s; staying just under that keeps one mint per view
 const DOWNLOAD_URL_STALE_MS = 90_000;
 
-/**
- * Any open stats query may sit above the touched folder, and they exist only while a delete
- * dialog is open, so invalidating the whole family is cheaper than resolving ancestors.
- */
+// A stats query may sit above the touched folder, so invalidate the family, not its ancestors
 const invalidateFolderStats = (queryClient: QueryClient): Promise<void> =>
   queryClient.invalidateQueries({
     predicate: (query) => query.queryKey[0] === 'folders' && query.queryKey[2] === 'stats',
@@ -25,11 +22,7 @@ const useFile = (fileId: string) =>
     retry: false,
   });
 
-/**
- * A refetch here hands back a differently signed URL, which would restart the viewer's fetch of
- * the whole document. The bytes it already holds live in a local blob: URL that never expires, so
- * re-minting on window focus buys nothing and costs the file size again.
- */
+// Re-minting on focus would restart the viewer's fetch of the whole document for a new URL
 const useFileDownloadUrl = (fileId: string) =>
   tsr.files.getDownloadUrl.useQuery({
     queryKey: fileQueryKey(fileId, 'download-url'),

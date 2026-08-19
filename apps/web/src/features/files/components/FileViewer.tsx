@@ -36,10 +36,6 @@ type FileViewerProperties = {
   back?: ReactNode;
 };
 
-/**
- * Renders one document from an already-resolved view model. It never names an endpoint, so the
- * same screen serves an authenticated reader and a public link.
- */
 const FileViewer = ({ file, back }: FileViewerProperties): ReactElement => {
   const signedUrl =
     file.status === 'ready' && file.download.status === 'ready' ? file.download.signedUrl : null;

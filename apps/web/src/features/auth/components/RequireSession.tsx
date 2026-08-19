@@ -10,12 +10,7 @@ import { DEFAULT_RETURN_TO, toInternalPath } from '../utils/return-to';
 const RequireSession = ({ children }: PropsWithChildren): ReactElement => {
   const { refetch, session, status } = useSession();
 
-  /**
-   * The deep link the visitor asked for, sanitised at the source. Collapsing an auth path to the
-   * default here is what keeps the redirect target stable: without it, redirecting away from "/"
-   * would feed its own target back in and nest another returnTo on every render. Omitting the
-   * default also keeps the ordinary sign-in URL clean, since "/" is where sign-in lands anyway.
-   */
+  // Sanitised here, or redirecting from "/" would nest its own target on every render
   const returnTo = useRouterState({
     select: (state) => {
       const path = toInternalPath(state.location.href);

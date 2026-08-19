@@ -5,10 +5,7 @@ const AUTH_PATHS = ['/sign-in', '/sign-up'];
 
 const pathnameOf = (path: string): string => path.split(/[?#]/)[0] ?? path;
 
-/**
- * Router navigation by `href` accepts external targets by design, so a value read from the URL
- * must be narrowed to an internal path here or it becomes an open redirect.
- */
+// `href` navigation accepts external targets, so an unvalidated value is an open redirect
 const toInternalPath = (value: unknown): string => {
   if (typeof value !== 'string' || !value.startsWith('/')) {
     return DEFAULT_RETURN_TO;

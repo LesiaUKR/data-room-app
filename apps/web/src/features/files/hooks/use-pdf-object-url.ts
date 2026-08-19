@@ -6,11 +6,7 @@ type PdfObjectUrlState = {
   hasFailed: boolean;
 };
 
-/**
- * Storage serves objects as attachments, so an iframe pointed at the signed URL downloads them
- * instead of rendering. Fetching the bytes and re-typing them into a local object URL is what
- * makes the browser display the PDF inline, because a blob: URL carries no HTTP headers.
- */
+// Storage serves attachments, so the iframe needs a local blob: URL, which carries no headers
 const usePdfObjectUrl = (signedUrl: string | null): PdfObjectUrlState => {
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [hasFailed, setHasFailed] = useState(false);

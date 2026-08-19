@@ -16,10 +16,7 @@ type SharedFolderPageProperties = {
   folderId: string;
 };
 
-/**
- * A folder someone shared with this user. It reads the same authenticated endpoints as their own
- * room - the grant is resolved by the policy on the server - but never offers a write action.
- */
+// Same authenticated endpoints as the owner's room: the policy resolves the grant
 const SharedFolderPage = ({ folderId }: SharedFolderPageProperties): ReactElement => {
   const navigate = useNavigate();
   const router = useRouter();
